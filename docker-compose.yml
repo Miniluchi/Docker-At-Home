@@ -513,6 +513,39 @@ services:
       - database
       - all
 
+  # Planka
+  planka:
+    image: ghcr.io/plankanban/planka:latest
+    container_name: planka
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - traefik
+    networks:
+      - traefik_net
+    environment:
+      - TRUST_PROXY=1
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/planka
+      - SECRET_KEY=${PLANKA_SECRET_KEY}
+      - BASE_URL=https://planka.${DOMAIN_BASE}
+      - TZ=${TZ}
+    volumes:
+      - planka_user_avatars:/app/public/user-avatars
+      - planka_project_bg:/app/public/project-backgrounds
+      - planka_attachments:/app/public/attachments
+      - planka_data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.planka.entrypoints=websecure"
+      - "traefik.http.routers.planka.tls=true"
+      - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.planka.loadbalancer.server.port=1337"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - tools
+      - all
+
 networks:
   traefik_net:
     name: traefik_net
@@ -543,10 +576,10 @@ volumes:
   freshrss_extensions:
   
   # Planka
-  planka_data:
   planka_user_avatars:
   planka_project_bg:
   planka_attachments:
+  planka_data:
   
   # Redis
   redis_data:
