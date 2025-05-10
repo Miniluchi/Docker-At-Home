@@ -405,8 +405,6 @@ services:
     networks:
       - secrith-network
       - traefik_net
-    depends_on:
-      - traefik
     profiles:
       - secrith
       - all
@@ -438,7 +436,6 @@ services:
       - traefik_net
     depends_on:
       - secrith-back
-      - traefik
     profiles:
       - secrith
       - all
