@@ -528,7 +528,7 @@ services:
       - TZ=${TZ}
     volumes:
       - planka_user_avatars:/app/public/user-avatars
-      - planka_project_bg:/app/public/project-backgrounds
+      - planka_project_bg:/app/public/background-images
       - planka_attachments:/app/public/attachments
       - planka_data:/app/data
     labels:
