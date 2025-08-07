@@ -298,7 +298,7 @@ services:
       - samba_config:/etc/samba
       - samba_logs:/var/log/samba
       - "${HDD_PATH}:/mount"
-      - "./init.sh:/init.sh"  # Monte le script d'initialisation
+      - "./init.sh:/init.sh" # Monte le script d'initialisation
     environment:
       - USERID=1000
       - GROUPID=1001
@@ -357,13 +357,19 @@ services:
     volumes:
       - homeassistant_config:/config
       - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
     environment:
       - TZ=${TZ}
     devices:
       - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
+    labels:
+      - "traefik.enable=false"
     depends_on:
       - mosquitto
       - zigbee2mqtt
+    profiles:
+      - domotique
+      - all
 
   # Proxy pour Home Assistant (permet l'accès via Traefik)
   homeassistant-proxy:
@@ -383,7 +389,6 @@ services:
       - "traefik.http.services.homeassistant.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
     depends_on:
-      - traefik
       - homeassistant
     profiles:
       - domotique
@@ -565,54 +570,54 @@ volumes:
   # Traefik
   traefik_letsencrypt:
   traefik_config:
-  
+
   # Homarr
   homarr_configs:
   homarr_icons:
   homarr_data:
-  
+
   # Portainer
   portainer_data:
-  
+
   # N8N
   n8n_data:
-  
+
   # FreshRSS
   freshrss_data:
   freshrss_extensions:
-  
+
   # Planka
   planka_user_avatars:
   planka_project_bg:
   planka_attachments:
   planka_data:
-  
+
   # Redis
   redis_data:
-  
+
   # PostgreSQL
   postgres_data:
-  
+
   # MySQL
   mysql_data:
-  
+
   # Plex
   plex_config:
-  
+
   # Overseerr
   overseerr_config:
-  
+
   # Samba
   samba_config:
   samba_logs:
   samba_init:
-  
+
   # Home Assistant
   homeassistant_config:
-  
+
   # Zigbee2MQTT
   zigbee2mqtt_config:
-  
+
   # Mosquitto
   mosquitto_config:
   mosquitto_data:
