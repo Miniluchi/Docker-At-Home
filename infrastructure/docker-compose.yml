@@ -1,0 +1,98 @@
+# Infrastructure Stack
+# Services: Traefik (reverse proxy), Homarr (dashboard), Portainer (management), Watchtower (auto-updates)
+
+services:
+  # Traefik - Reverse Proxy
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.file.filename=/etc/traefik/config.yml"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
+      - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - traefik_letsencrypt:/letsencrypt
+      - traefik_config:/etc/traefik
+    networks:
+      - traefik_net
+
+  # Homarr - Dashboard
+  homarr:
+    container_name: homarr
+    image: ghcr.io/homarr-labs/homarr:latest
+    restart: unless-stopped
+    networks:
+      - traefik_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - homarr_data:/appdata
+    environment:
+      - TZ=${TZ}
+      - SECRET_ENCRYPTION_KEY=${HOMARR_SECRET_ENCRYPTION_KEY}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homarr.rule=Host(`${DOMAIN_BASE}`)"
+      - "traefik.http.routers.homarr.entrypoints=web"
+      - "traefik.http.routers.homarr.entrypoints=websecure"
+      - "traefik.http.routers.homarr.tls=true"
+      - "traefik.http.services.homarr.loadbalancer.server.port=7575"
+    depends_on:
+      - traefik
+
+  # Portainer - Container Management
+  portainer:
+    image: portainer/portainer-ce:2.21.4
+    container_name: portainer
+    restart: unless-stopped
+    networks:
+      - traefik_net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - portainer_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.docker.network=traefik_net"
+      # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ}
+    depends_on:
+      - traefik
+
+  # Watchtower - Auto-updates
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --cleanup --interval 86400
+    environment:
+      - TZ=Europe/Paris
+
+networks:
+  traefik_net:
+    name: traefik_net
+    external: true
+
+volumes:
+  traefik_letsencrypt:
+  traefik_config:
+  homarr_data:
+  portainer_data:

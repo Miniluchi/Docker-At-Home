@@ -1,0 +1,70 @@
+# Database Stack
+# Services: PostgreSQL, MySQL, Redis, phpMyAdmin
+
+services:
+  # Redis - Cache
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - traefik_net
+
+  # PostgreSQL - Base de données
+  postgres:
+    container_name: postgres
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+
+  # MySQL - Base de données pour phpMyAdmin
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - traefik_net
+
+  # phpMyAdmin - Interface MySQL
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      TZ: ${TZ}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls=true"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=letsEncrypt"
+      - "traefik.docker.network=traefik_net"
+    networks:
+      - traefik_net
+    depends_on:
+      - mysql
+
+networks:
+  traefik_net:
+    name: traefik_net
+    external: true
+
+volumes:
+  redis_data:
+  postgres_data:
+  mysql_data:
