@@ -403,8 +403,10 @@ services:
       - DEFAULT_ADMIN_NAME=${PLANKA_DEFAULT_ADMIN_NAME}
       - TZ=${TZ}
     volumes:
-      - planka_public:/app/public
-      - planka_data:/app/data
+      - favicons:/app/public/favicons
+      - user-avatars:/app/public/user-avatars
+      - background-images:/app/public/background-images
+      - attachments:/app/private/attachments
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
@@ -461,8 +463,10 @@ volumes:
   n8n_data:
 
   # Planka
-  planka_public:
-  planka_data:
+  favicons:
+  user-avatars:
+  background-images:
+  attachments:
 
   # Redis
   redis_data:
