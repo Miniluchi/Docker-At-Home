@@ -2,14 +2,11 @@
 # Profils disponibles:
 # - infrastructure: Services de base (Traefik, Portainer, Watchtower)
 # - dashboard: Tableaux de bord comme Homarr
-# - media: Services liés aux médias (Plex, Overseerr)
+# - media: Services liés aux médias (Overseerr)
 # - domotique: Services domotiques (Home Assistant, Zigbee2MQTT, Mosquitto)
 # - database: Bases de données (PostgreSQL, MySQL, Redis) et outils d'administration
-# - rss: Services RSS (FreshRSS, RSSHub)
-# - secrith: Application Secrith (frontend et backend)
-# - storage: Services de stockage comme Samba
 # - automation: Services d'automatisation comme N8N
-# - tools: Outils divers (Snapdrop)
+# - tools: Outils divers (Snapdrop, Planka, Planka-db)
 # - all: Tous les services
 #
 # Utilisation:
@@ -21,12 +18,21 @@
 services:
   # Traefik - Reverse Proxy
   traefik:
-    image: traefik:v2.9
+    image: traefik:3.5.3
     container_name: traefik
     restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     command:
-      - "--api.insecure=true"
+      - "--api.dashboard=false"
+      - "--api.insecure=false"
       - "--providers.docker=true"
+      - "--ping=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
@@ -47,6 +53,7 @@ services:
       - infrastructure
       - all
 
+  # Proxy pour OpenMediaVault (permet l'accès via Traefik)
   omv-proxy:
     image: nginx:alpine
     container_name: omv-proxy
@@ -62,8 +69,6 @@ services:
       - "traefik.http.routers.omv.tls=true"
       - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
       - "traefik.http.services.omv.loadbalancer.server.port=80"
-    depends_on:
-      - traefik
     environment:
       - TZ=${TZ}
     profiles:
@@ -73,7 +78,7 @@ services:
   # Homarr - Dashboard
   homarr:
     container_name: homarr
-    image: ghcr.io/homarr-labs/homarr:latest
+    image: ghcr.io/homarr-labs/homarr:v1.43.0
     restart: unless-stopped
     networks:
       - traefik_net
@@ -86,7 +91,6 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.homarr.rule=Host(`${DOMAIN_BASE}`)"
-      - "traefik.http.routers.homarr.entrypoints=web"
       - "traefik.http.routers.homarr.entrypoints=websecure"
       - "traefik.http.routers.homarr.tls=true"
       - "traefik.http.routers.homarr.tls.certresolver=letsEncrypt"
@@ -136,7 +140,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --cleanup --interval 86400
     environment:
-      - TZ=Europe/Paris
+      - TZ=${TZ}
     profiles:
       - infrastructure
       - all
@@ -175,60 +179,8 @@ services:
     restart: unless-stopped
     depends_on:
       - postgres
-      - traefik
     profiles:
       - automation
-      - all
-
-  # FreshRSS - RSS Reader
-  freshrss:
-    container_name: freshrss
-    image: freshrss/freshrss
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=${TZ}
-      - environment=development
-    volumes:
-      - freshrss_data:/var/www/FreshRSS/data
-      - freshrss_extensions:/var/www/FreshRSS/extensions
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.freshrss.rule=Host(`rss.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.freshrss.entrypoints=websecure"
-      - "traefik.http.routers.freshrss.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
-    depends_on:
-      - traefik
-      - rsshub
-    profiles:
-      - rss
-      - all
-
-  # RSSHub - RSS Generator
-  rsshub:
-    container_name: rsshub
-    image: diygod/rsshub
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    environment:
-      - NODE_ENV=production
-      - TZ=${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.rsshub.rule=Host(`rsshub.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.rsshub.entrypoints=websecure"
-      - "traefik.http.routers.rsshub.tls=true"
-      - "traefik.http.routers.rsshub.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
-    depends_on:
-      - traefik
-    profiles:
-      - rss
       - all
 
   # Snapdrop - Partage de fichiers local
@@ -248,40 +200,8 @@ services:
       - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
       - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
-    depends_on:
-      - traefik
     profiles:
       - tools
-      - all
-
-  # Plex - Media Server
-  plex:
-    image: lscr.io/linuxserver/plex:latest
-    container_name: plex
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - VERSION=docker
-      - PLEX_CLAIM=${PLEX_CLAIM}
-      - TZ=${TZ}
-    volumes:
-      - plex_config:/config
-      - "${MEDIA_PATH}:/media"
-      - /dev/shm:/dev/shm
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.plex.rule=Host(`plex.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.plex.entrypoints=websecure"
-      - "traefik.http.routers.plex.tls=true"
-      - "traefik.http.routers.plex.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.plex.loadbalancer.server.port=32400"
-    depends_on:
-      - traefik
-    profiles:
-      - media
       - all
 
   # Overseerr - Demandes de médias
@@ -289,8 +209,8 @@ services:
     image: lscr.io/linuxserver/overseerr:latest
     container_name: overseerr
     environment:
-      - PUID=1000
-      - PGID=1000
+      - PUID=${PUID}
+      - PGID=${PGID}
       - LOG_LEVEL=info
       - TZ=${TZ}
     volumes:
@@ -305,33 +225,8 @@ services:
       - "traefik.http.routers.overseerr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
       - "traefik.docker.network=traefik_net"
-    depends_on:
-      - plex
-      - traefik
     profiles:
       - media
-      - all
-
-  # Samba - Partage de fichiers
-  samba:
-    image: dperson/samba
-    container_name: samba
-    ports:
-      - "139:139/tcp"
-      - "445:445/tcp"
-    volumes:
-      - samba_config:/etc/samba
-      - samba_logs:/var/log/samba
-      - "${HDD_PATH}:/mount"
-      - "./init.sh:/init.sh" # Monte le script d'initialisation
-    environment:
-      - USERID=1000
-      - GROUPID=1001
-      - TZ=${TZ}
-    command: ["/bin/sh", "-c", "/init.sh && /usr/sbin/smbd -F"]
-    restart: unless-stopped
-    profiles:
-      - storage
       - all
 
   # Mosquitto MQTT Broker
@@ -484,7 +379,6 @@ services:
       - traefik_net
     depends_on:
       - mysql
-      - traefik
     profiles:
       - database
       - all
@@ -495,20 +389,21 @@ services:
     container_name: planka
     restart: unless-stopped
     depends_on:
-      - postgres
-      - traefik
+      - planka-db
     networks:
       - traefik_net
     environment:
       - TRUST_PROXY=1
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/planka
+      - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
       - SECRET_KEY=${PLANKA_SECRET_KEY}
       - BASE_URL=https://planka.${DOMAIN_BASE}
+      - DEFAULT_ADMIN_EMAIL=${PLANKA_DEFAULT_ADMIN_EMAIL}
+      - DEFAULT_ADMIN_USERNAME=${PLANKA_DEFAULT_ADMIN_USERNAME}
+      - DEFAULT_ADMIN_PASSWORD=${PLANKA_DEFAULT_ADMIN_PASSWORD}
+      - DEFAULT_ADMIN_NAME=${PLANKA_DEFAULT_ADMIN_NAME}
       - TZ=${TZ}
     volumes:
-      - planka_user_avatars:/app/public/user-avatars
-      - planka_project_bg:/app/public/background-images
-      - planka_attachments:/app/public/attachments
+      - planka_public:/app/public
       - planka_data:/app/data
     labels:
       - "traefik.enable=true"
@@ -518,6 +413,24 @@ services:
       - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
       - "traefik.http.services.planka.loadbalancer.server.port=1337"
       - "traefik.docker.network=traefik_net"
+    profiles:
+      - tools
+      - all
+
+  # PostgreSQL Planka - Base de données dédiée
+  planka-db:
+    image: postgres:15
+    container_name: planka-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PLANKA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PLANKA_POSTGRES_DB}
+      TZ: ${TZ}
+    volumes:
+      - postgres_planka_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
     profiles:
       - tools
       - all
@@ -547,14 +460,8 @@ volumes:
   # N8N
   n8n_data:
 
-  # FreshRSS
-  freshrss_data:
-  freshrss_extensions:
-
   # Planka
-  planka_user_avatars:
-  planka_project_bg:
-  planka_attachments:
+  planka_public:
   planka_data:
 
   # Redis
@@ -563,19 +470,14 @@ volumes:
   # PostgreSQL
   postgres_data:
 
+  # PostgreSQL Planka
+  postgres_planka_data:
+
   # MySQL
   mysql_data:
 
-  # Plex
-  plex_config:
-
   # Overseerr
   overseerr_config:
-
-  # Samba
-  samba_config:
-  samba_logs:
-  samba_init:
 
   # Home Assistant
   homeassistant_config:
