@@ -1,12 +1,11 @@
 # Docker Compose avec profils
 # Profils disponibles:
-# - infrastructure: Services de base (Traefik, Portainer, Watchtower)
-# - dashboard: Tableaux de bord comme Homarr
+# - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
+# - dashboard: Tableaux de bord (Homarr)
 # - media: Services liés aux médias (Overseerr)
-# - domotique: Services domotiques (Home Assistant, Zigbee2MQTT, Mosquitto)
-# - database: Bases de données (PostgreSQL, MySQL, Redis) et outils d'administration
-# - automation: Services d'automatisation comme N8N
-# - tools: Outils divers (Snapdrop, Planka, Planka-db)
+# - domotique: Services domotiques (Home Assistant, Home Assistant-Proxy, Zigbee2MQTT, Mosquitto)
+# - automation: Services d'automatisation (n8n, n8n-db)
+# - tools: Outils divers (snapdrop, planka, planka-db)
 # - all: Tous les services
 #
 # Utilisation:
@@ -69,6 +68,7 @@ services:
       - "traefik.http.routers.omv.tls=true"
       - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
       - "traefik.http.services.omv.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_net"
     environment:
       - TZ=${TZ}
     profiles:
@@ -95,8 +95,6 @@ services:
       - "traefik.http.routers.homarr.tls=true"
       - "traefik.http.routers.homarr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.homarr.loadbalancer.server.port=7575"
-    depends_on:
-      - traefik
     profiles:
       - dashboard
       - infrastructure
@@ -154,11 +152,11 @@ services:
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
       - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_HOST=n8n-db
       - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=n8n
-      - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
-      - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+      - DB_POSTGRESDB_DATABASE=${N8N_POSTGRES_DB}
+      - DB_POSTGRESDB_USER=${N8N_POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${N8N_POSTGRES_PASSWORD}
       - GENERIC_TIMEZONE=${TZ}
       - N8N_HOST=n8n.${DOMAIN_BASE}
       - N8N_PORT=5678
@@ -178,7 +176,25 @@ services:
       - "traefik.docker.network=traefik_net"
     restart: unless-stopped
     depends_on:
-      - postgres
+      - n8n-db
+    profiles:
+      - automation
+      - all
+
+  # PostgreSQL N8N - Base de données dédiée
+  n8n-db:
+    image: postgres:15
+    container_name: n8n-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${N8N_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${N8N_POSTGRES_DB}
+      TZ: ${TZ}
+    volumes:
+      - postgres_n8n_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
     profiles:
       - automation
       - all
@@ -314,75 +330,6 @@ services:
       - domotique
       - all
 
-  # Redis - Cache
-  redis:
-    image: redis:latest
-    container_name: redis
-    restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    volumes:
-      - redis_data:/data
-    networks:
-      - traefik_net
-    profiles:
-      - database
-      - all
-
-  # PostgreSQL - Base de données
-  postgres:
-    container_name: postgres
-    image: postgres:15
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - traefik_net
-    profiles:
-      - database
-      - all
-
-  # MySQL - Base de données pour phpMyAdmin
-  mysql:
-    image: mysql:8.0
-    container_name: mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - traefik_net
-    profiles:
-      - database
-      - all
-
-  # phpMyAdmin - Interface MySQL
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      TZ: ${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
-      - "traefik.http.routers.phpmyadmin.tls=true"
-      - "traefik.http.routers.phpmyadmin.tls.certresolver=letsEncrypt"
-      - "traefik.docker.network=traefik_net"
-    networks:
-      - traefik_net
-    depends_on:
-      - mysql
-    profiles:
-      - database
-      - all
-
   # Planka
   planka:
     image: ghcr.io/plankanban/planka:latest
@@ -443,8 +390,6 @@ networks:
     external: true
   homeassistant_net:
     name: homeassistant_net
-  secrith-network:
-    driver: bridge
 
 volumes:
   # Traefik
@@ -452,8 +397,6 @@ volumes:
   traefik_config:
 
   # Homarr
-  homarr_configs:
-  homarr_icons:
   homarr_data:
 
   # Portainer
@@ -462,23 +405,17 @@ volumes:
   # N8N
   n8n_data:
 
+  # PostgreSQL N8N
+  postgres_n8n_data:
+
   # Planka
   favicons:
   user-avatars:
   background-images:
   attachments:
 
-  # Redis
-  redis_data:
-
-  # PostgreSQL
-  postgres_data:
-
   # PostgreSQL Planka
   postgres_planka_data:
-
-  # MySQL
-  mysql_data:
 
   # Overseerr
   overseerr_config:
