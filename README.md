@@ -6,15 +6,12 @@ Stack Docker pour auto-hébergement de services domestiques, organisée par prof
 
 Cette stack utilise un fichier `docker-compose.yml` unique avec des **profils** pour organiser les services par catégories :
 
-- **infrastructure** : Services de base (Traefik, Portainer, Watchtower)
+- **infrastructure** : Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homarr)
 - **dashboard** : Tableaux de bord (Homarr)
-- **media** : Services liés aux médias (Plex, Overseerr)
-- **domotique** : Services domotiques (Home Assistant, Zigbee2MQTT, Mosquitto)
-- **database** : Bases de données (PostgreSQL, MySQL, Redis) et outils d'administration
-- **rss** : Services RSS (FreshRSS, RSSHub)
-- **automation** : Services d'automatisation (N8N)
-- **storage** : Services de stockage (Samba)
-- **tools** : Outils divers (Planka, Snapdrop)
+- **media** : Services liés aux médias (Overseerr)
+- **domotique** : Services domotiques (Home Assistant)
+- **automation** : Services d'automatisation (N8N avec PostgreSQL dédié)
+- **tools** : Outils divers (Planka avec PostgreSQL dédié, Snapdrop)
 - **all** : Tous les services
 
 ## 🚀 Démarrage rapide
@@ -74,46 +71,30 @@ docker compose --profile media restart
 
 ### 🏗️ Infrastructure
 
-- **Traefik** : Reverse proxy avec SSL automatique
-- **Portainer** : Gestion des conteneurs
-- **Watchtower** : Mises à jour automatiques
-- **Homarr** : Dashboard principal
+- **Traefik** : Reverse proxy avec SSL automatique (Let's Encrypt)
+- **OMV-Proxy** : Proxy nginx pour OpenMediaVault
+- **Portainer** : Gestion des conteneurs Docker
+- **Watchtower** : Mises à jour automatiques des conteneurs avec notifications email
+- **Homarr** : Dashboard principal d'accueil
 
 ### 🎬 Media
 
-- **Plex** : Serveur média
-- **Overseerr** : Demandes de médias
+- **Overseerr** : Interface de demandes de médias
 
 ### 🏠 Domotique
 
-- **Home Assistant** : Centre de contrôle domotique
-- **Zigbee2MQTT** : Bridge Zigbee vers MQTT
-- **Mosquitto** : Broker MQTT
-
-### 🗄️ Database
-
-- **PostgreSQL** : Base de données principale
-- **MySQL** : Base de données alternative
-- **Redis** : Cache et sessions
-- **phpMyAdmin** : Interface MySQL
-
-### 📰 RSS
-
-- **FreshRSS** : Lecteur RSS
-- **RSSHub** : Générateur de flux RSS
+- **Home Assistant** : Centre de contrôle domotique (mode host) avec intégration ZHA pour Zigbee
 
 ### 🤖 Automation
 
-- **N8N** : Automatisation de workflows
-
-### 💾 Storage
-
-- **Samba** : Partage de fichiers réseau
+- **N8N** : Plateforme d'automatisation de workflows
+- **N8N-DB** : Base de données PostgreSQL dédiée pour N8N
 
 ### 🛠️ Tools
 
-- **Planka** : Gestion de projet Kanban
-- **Snapdrop** : Partage de fichiers local
+- **Planka** : Tableau Kanban pour gestion de projets
+- **Planka-DB** : Base de données PostgreSQL dédiée pour Planka
+- **Snapdrop** : Partage de fichiers local P2P
 
 ## 📋 Profils détaillés
 
@@ -121,11 +102,11 @@ docker compose --profile media restart
 
 Services de base nécessaires au fonctionnement de la stack.
 
-- **traefik** : Reverse proxy avec SSL automatique
-- **portainer** : Interface de gestion Docker
-- **watchtower** : Mises à jour automatiques des conteneurs
-- **homarr** : Dashboard principal
-- **omv-proxy** : Proxy pour OpenMediaVault
+- **traefik** : Reverse proxy avec SSL automatique (Let's Encrypt)
+- **omv-proxy** : Proxy nginx pour accès à OpenMediaVault via Traefik
+- **portainer** : Interface web de gestion Docker
+- **watchtower** : Mises à jour automatiques des conteneurs (vérification quotidienne)
+- **homarr** : Dashboard principal avec widgets personnalisables
 
 ### dashboard
 
@@ -137,57 +118,25 @@ Tableaux de bord et interfaces de contrôle.
 
 Services liés à la gestion et diffusion de médias.
 
-- **plex** : Serveur de médias
-- **overseerr** : Interface de demandes de médias
+- **overseerr** : Interface de demandes de médias pour Plex/Jellyfin
 
 ### domotique
 
-Écosystème domotique complet.
+Écosystème domotique avec support Zigbee natif.
 
-- **homeassistant** : Centre de contrôle domotique
-- **zigbee2mqtt** : Bridge pour appareils Zigbee
-- **mosquitto** : Broker MQTT
-- **homeassistant-proxy** : Proxy pour accès via Traefik
-
-### database
-
-Bases de données et outils d'administration.
-
-- **postgres** : Base de données PostgreSQL
-- **mysql** : Base de données MySQL
-- **redis** : Cache Redis
-- **phpmyadmin** : Interface d'administration MySQL
-
-### rss
-
-Services de gestion de flux RSS.
-
-- **freshrss** : Lecteur RSS
-- **rsshub** : Générateur de flux RSS
+- **homeassistant** : Centre de contrôle domotique (mode host pour accès périphériques)
 
 ### automation
 
-Services d'automatisation et workflows.
+Services d'automatisation et workflows avec base de données dédiée.
 
-- **n8n** : Plateforme d'automatisation
-
-### storage
-
-Solutions de stockage et partage de fichiers.
-
-- **samba** : Serveur de partage de fichiers SMB/CIFS
+- **n8n** : Plateforme d'automatisation avec authentification HTTP Basic
+- **n8n-db** : PostgreSQL 15 dédié pour persistance des workflows
 
 ### tools
 
-Outils divers et utilitaires.
+Outils divers et utilitaires avec bases de données dédiées.
 
-- **planka** : Tableau Kanban
-- **snapdrop** : Partage de fichiers local
-
-## 📝 Notes
-
-- Tous les services utilisent Traefik comme reverse proxy
-- Les volumes persistent les données dans des répertoires locaux
-- Configuration via variables d'environnement (`.env`)
-- Le profil `infrastructure` doit être démarré en premier
-- Les services Home Assistant utilisent le mode `host` pour l'accès aux périphériques
+- **planka** : Tableau Kanban pour gestion de projets
+- **planka-db** : PostgreSQL 15 dédié pour Planka
+- **snapdrop** : Partage de fichiers local P2P (alternative à AirDrop)
