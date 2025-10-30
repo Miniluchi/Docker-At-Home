@@ -3,430 +3,370 @@
 # - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
 # - dashboard: Tableaux de bord (Homarr)
 # - media: Services liés aux médias (Overseerr)
-# - domotique: Services domotiques (Home Assistant, Home Assistant-Proxy, Zigbee2MQTT, Mosquitto)
 # - automation: Services d'automatisation (n8n, n8n-db)
 # - tools: Outils divers (snapdrop, planka, planka-db)
+# - domotique: Services domotique (Home Assistant)
 # - all: Tous les services
 #
 # Utilisation:
 # - Démarrer un profil: docker compose --profile media up -d
-# - Démarrer plusieurs profils: docker compose --profile media --profile domotique up -d
+# - Démarrer plusieurs profils: docker compose --profile media --profile automation up -d
 # - Démarrer tous les services: docker compose --profile all up -d
 # - Arrêter un profil: docker compose --profile media down
 
 services:
-  # Traefik - Reverse Proxy
-  traefik:
-    image: traefik:3.5.3
-    container_name: traefik
-    restart: unless-stopped
-    environment:
-      - TZ=${TZ}
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    command:
-      - "--api.dashboard=false"
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--ping=true"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
-      - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
-      - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-    ports:
-      - 80:80
-      - 443:443
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - traefik_letsencrypt:/letsencrypt
-      - traefik_config:/etc/traefik
-    networks:
-      - traefik_net
-    profiles:
-      - infrastructure
-      - all
+    # Traefik - Reverse Proxy
+    traefik:
+        image: traefik:3.5.3
+        container_name: traefik
+        restart: unless-stopped
+        environment:
+            - TZ=${TZ}
+        healthcheck:
+            test: ["CMD", "traefik", "healthcheck", "--ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+        command:
+            - "--api.dashboard=false"
+            - "--api.insecure=false"
+            - "--providers.docker=true"
+            - "--ping=true"
+            - "--entrypoints.web.address=:80"
+            - "--entrypoints.websecure.address=:443"
+            - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
+            - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+            - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
+            - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+            - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+        ports:
+            - 80:80
+            - 443:443
+        extra_hosts:
+            - "host.docker.internal:host-gateway" # A TESTER
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock:ro"
+            - traefik_letsencrypt:/letsencrypt
+            - traefik_config:/etc/traefik
+        networks:
+            - traefik_net
+        profiles:
+            - infrastructure
+            - all
 
-  # Proxy pour OpenMediaVault (permet l'accès via Traefik)
-  omv-proxy:
-    image: nginx:alpine
-    container_name: omv-proxy
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    volumes:
-      - ./nginx-omv.conf:/etc/nginx/nginx.conf:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.omv.rule=Host(`omv.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.omv.entrypoints=websecure"
-      - "traefik.http.routers.omv.tls=true"
-      - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.omv.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-    environment:
-      - TZ=${TZ}
-    profiles:
-      - infrastructure
-      - all
+    # Proxy pour OpenMediaVault (permet l'accès via Traefik)
+    omv-proxy:
+        image: nginx:alpine
+        container_name: omv-proxy
+        restart: unless-stopped
+        networks:
+            - traefik_net
+        volumes:
+            - ./nginx-omv.conf:/etc/nginx/nginx.conf:ro
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.omv.rule=Host(`omv.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.omv.entrypoints=websecure"
+            - "traefik.http.routers.omv.tls=true"
+            - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.omv.loadbalancer.server.port=80"
+            - "traefik.docker.network=traefik_net"
+        environment:
+            - TZ=${TZ}
+        profiles:
+            - infrastructure
+            - all
 
-  # Homarr - Dashboard
-  homarr:
-    container_name: homarr
-    image: ghcr.io/homarr-labs/homarr:v1.43.0
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - homarr_data:/appdata
-    environment:
-      - TZ=${TZ}
-      - SECRET_ENCRYPTION_KEY=${HOMARR_SECRET_ENCRYPTION_KEY}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.homarr.rule=Host(`${DOMAIN_BASE}`)"
-      - "traefik.http.routers.homarr.entrypoints=websecure"
-      - "traefik.http.routers.homarr.tls=true"
-      - "traefik.http.routers.homarr.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.homarr.loadbalancer.server.port=7575"
-    profiles:
-      - dashboard
-      - infrastructure
-      - all
+    # Homarr - Dashboard
+    homarr:
+        container_name: homarr
+        image: ghcr.io/homarr-labs/homarr:v1.43.0
+        restart: unless-stopped
+        networks:
+            - traefik_net
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - homarr_data:/appdata
+        environment:
+            - TZ=${TZ}
+            - SECRET_ENCRYPTION_KEY=${HOMARR_SECRET_ENCRYPTION_KEY}
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.homarr.rule=Host(`${DOMAIN_BASE}`)"
+            - "traefik.http.routers.homarr.entrypoints=websecure"
+            - "traefik.http.routers.homarr.tls=true"
+            - "traefik.http.routers.homarr.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.homarr.loadbalancer.server.port=7575"
+        profiles:
+            - dashboard
+            - infrastructure
+            - all
 
-  # Portainer - Container Management
-  portainer:
-    image: portainer/portainer-ce:2.21.4
-    container_name: portainer
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - portainer_data:/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
-      - "traefik.docker.network=traefik_net"
-      # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - TZ=${TZ}
-    depends_on:
-      - traefik
-    profiles:
-      - infrastructure
-      - all
+    # Portainer - Container Management
+    portainer:
+        image: portainer/portainer-ce:2.21.4
+        container_name: portainer
+        restart: unless-stopped
+        networks:
+            - traefik_net
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock:ro"
+            - portainer_data:/data
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.portainer.entrypoints=websecure"
+            - "traefik.http.routers.portainer.tls=true"
+            - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+            - "traefik.docker.network=traefik_net"
+            # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
+        security_opt:
+            - no-new-privileges:true
+        environment:
+            - TZ=${TZ}
+        depends_on:
+            - traefik
+        profiles:
+            - infrastructure
+            - all
 
-  # Watchtower - Auto-updates
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --cleanup --interval 86400
-    environment:
-      - TZ=${TZ}
-    profiles:
-      - infrastructure
-      - all
+    # Watchtower - Auto-updates
+    watchtower:
+        image: containrrr/watchtower
+        container_name: watchtower
+        restart: unless-stopped
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+        command: --cleanup --interval 86400
+        environment:
+            - TZ=${TZ}
+            - WATCHTOWER_NOTIFICATIONS=email
+            - WATCHTOWER_NOTIFICATION_EMAIL_FROM=${WATCHTOWER_NOTIFICATION_EMAIL_FROM}
+            - WATCHTOWER_NOTIFICATION_EMAIL_TO=${WATCHTOWER_NOTIFICATION_EMAIL_TO}
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER}
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT}
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER}
+            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD}
+            - WATCHTOWER_NOTIFICATION_EMAIL_DELAY=2
+        profiles:
+            - infrastructure
+            - all
 
-  # N8N - Workflow Automation
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: n8n
-    environment:
-      - N8N_BASIC_AUTH_ACTIVE=true
-      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
-      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=n8n-db
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_DATABASE=${N8N_POSTGRES_DB}
-      - DB_POSTGRESDB_USER=${N8N_POSTGRES_USER}
-      - DB_POSTGRESDB_PASSWORD=${N8N_POSTGRES_PASSWORD}
-      - GENERIC_TIMEZONE=${TZ}
-      - N8N_HOST=n8n.${DOMAIN_BASE}
-      - N8N_PORT=5678
-      - WEBHOOK_URL=https://n8n.${DOMAIN_BASE}/
-      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-    volumes:
-      - n8n_data:/home/node/.n8n
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.n8n.entrypoints=websecure"
-      - "traefik.http.routers.n8n.tls=true"
-      - "traefik.http.routers.n8n.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-      - "traefik.docker.network=traefik_net"
-    restart: unless-stopped
-    depends_on:
-      - n8n-db
-    profiles:
-      - automation
-      - all
+    # N8N - Workflow Automation
+    n8n:
+        image: n8nio/n8n:latest
+        container_name: n8n
+        environment:
+            - N8N_BASIC_AUTH_ACTIVE=true
+            - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+            - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+            - DB_TYPE=postgresdb
+            - DB_POSTGRESDB_HOST=n8n-db
+            - DB_POSTGRESDB_PORT=5432
+            - DB_POSTGRESDB_DATABASE=${N8N_POSTGRES_DB}
+            - DB_POSTGRESDB_USER=${N8N_POSTGRES_USER}
+            - DB_POSTGRESDB_PASSWORD=${N8N_POSTGRES_PASSWORD}
+            - GENERIC_TIMEZONE=${TZ}
+            - N8N_HOST=n8n.${DOMAIN_BASE}
+            - N8N_PORT=5678
+            - WEBHOOK_URL=https://n8n.${DOMAIN_BASE}/
+            - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+        volumes:
+            - n8n_data:/home/node/.n8n
+        networks:
+            - traefik_net
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.n8n.rule=Host(`n8n.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.n8n.entrypoints=websecure"
+            - "traefik.http.routers.n8n.tls=true"
+            - "traefik.http.routers.n8n.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+            - "traefik.docker.network=traefik_net"
+        restart: unless-stopped
+        depends_on:
+            - n8n-db
+        profiles:
+            - automation
+            - all
 
-  # PostgreSQL N8N - Base de données dédiée
-  n8n-db:
-    image: postgres:15
-    container_name: n8n-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${N8N_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${N8N_POSTGRES_DB}
-      TZ: ${TZ}
-    volumes:
-      - postgres_n8n_data:/var/lib/postgresql/data
-    networks:
-      - traefik_net
-    profiles:
-      - automation
-      - all
+    # PostgreSQL N8N - Base de données dédiée
+    n8n-db:
+        image: postgres:15
+        container_name: n8n-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${N8N_POSTGRES_USER}
+            POSTGRES_PASSWORD: ${N8N_POSTGRES_PASSWORD}
+            POSTGRES_DB: ${N8N_POSTGRES_DB}
+            TZ: ${TZ}
+        volumes:
+            - postgres_n8n_data:/var/lib/postgresql/data
+        networks:
+            - traefik_net
+        profiles:
+            - automation
+            - all
 
-  # Snapdrop - Partage de fichiers local
-  snapdrop:
-    image: linuxserver/snapdrop:version-f88d46ed
-    container_name: snapdrop
-    restart: unless-stopped
-    networks:
-      - traefik_net
-    environment:
-      - TZ=${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.snapdrop.rule=Host(`snapdrop.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.snapdrop.entrypoints=websecure"
-      - "traefik.http.routers.snapdrop.tls=true"
-      - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - tools
-      - all
+    # Snapdrop - Partage de fichiers local
+    snapdrop:
+        image: linuxserver/snapdrop:version-f88d46ed
+        container_name: snapdrop
+        restart: unless-stopped
+        networks:
+            - traefik_net
+        environment:
+            - TZ=${TZ}
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.snapdrop.rule=Host(`snapdrop.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.snapdrop.entrypoints=websecure"
+            - "traefik.http.routers.snapdrop.tls=true"
+            - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
+            - "traefik.docker.network=traefik_net"
+        profiles:
+            - tools
+            - all
 
-  # Overseerr - Demandes de médias
-  overseerr:
-    image: lscr.io/linuxserver/overseerr:latest
-    container_name: overseerr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - LOG_LEVEL=info
-      - TZ=${TZ}
-    volumes:
-      - overseerr_config:/config
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.overseerr.rule=Host(`overseerr.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.overseerr.entrypoints=websecure"
-      - "traefik.http.routers.overseerr.tls=true"
-      - "traefik.http.routers.overseerr.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - media
-      - all
+    # Overseerr - Demandes de médias
+    overseerr:
+        image: lscr.io/linuxserver/overseerr:latest
+        container_name: overseerr
+        environment:
+            - PUID=${PUID}
+            - PGID=${PGID}
+            - LOG_LEVEL=info
+            - TZ=${TZ}
+        volumes:
+            - overseerr_config:/config
+        networks:
+            - traefik_net
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.overseerr.rule=Host(`overseerr.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.overseerr.entrypoints=websecure"
+            - "traefik.http.routers.overseerr.tls=true"
+            - "traefik.http.routers.overseerr.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.overseerr.loadbalancer.server.port=5055"
+            - "traefik.docker.network=traefik_net"
+        profiles:
+            - media
+            - all
 
-  # Mosquitto MQTT Broker
-  mosquitto:
-    image: eclipse-mosquitto
-    container_name: mosquitto
-    restart: unless-stopped
-    volumes:
-      - mosquitto_config:/mosquitto/config
-      - mosquitto_data:/mosquitto/data
-      - mosquitto_log:/mosquitto/log
-    networks:
-      - homeassistant_net
-    environment:
-      - TZ=${TZ}
-    profiles:
-      - domotique
-      - all
+    # Planka
+    planka:
+        image: ghcr.io/plankanban/planka:latest
+        container_name: planka
+        restart: unless-stopped
+        depends_on:
+            - planka-db
+        networks:
+            - traefik_net
+        environment:
+            - TRUST_PROXY=1
+            - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
+            - SECRET_KEY=${PLANKA_SECRET_KEY}
+            - BASE_URL=https://planka.${DOMAIN_BASE}
+            - DEFAULT_ADMIN_EMAIL=${PLANKA_DEFAULT_ADMIN_EMAIL}
+            - DEFAULT_ADMIN_USERNAME=${PLANKA_DEFAULT_ADMIN_USERNAME}
+            - DEFAULT_ADMIN_PASSWORD=${PLANKA_DEFAULT_ADMIN_PASSWORD}
+            - DEFAULT_ADMIN_NAME=${PLANKA_DEFAULT_ADMIN_NAME}
+            - TZ=${TZ}
+        volumes:
+            - favicons:/app/public/favicons
+            - user-avatars:/app/public/user-avatars
+            - background-images:/app/public/background-images
+            - attachments:/app/private/attachments
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.planka.entrypoints=websecure"
+            - "traefik.http.routers.planka.tls=true"
+            - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.planka.loadbalancer.server.port=1337"
+            - "traefik.docker.network=traefik_net"
+        profiles:
+            - tools
+            - all
 
-  # Zigbee2MQTT
-  zigbee2mqtt:
-    image: koenkk/zigbee2mqtt
-    container_name: zigbee2mqtt
-    restart: unless-stopped
-    volumes:
-      - zigbee2mqtt_config:/app/data
-      - /run/udev:/run/udev:ro
-    ports:
-      - 8080:8123
-    environment:
-      - TZ=${TZ}
-    devices:
-      - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
-    networks:
-      - homeassistant_net
-    depends_on:
-      - mosquitto
-    profiles:
-      - domotique
-      - all
+    # PostgreSQL Planka - Base de données dédiée
+    planka-db:
+        image: postgres:15
+        container_name: planka-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${PLANKA_POSTGRES_USER}
+            POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
+            POSTGRES_DB: ${PLANKA_POSTGRES_DB}
+            TZ: ${TZ}
+        volumes:
+            - postgres_planka_data:/var/lib/postgresql/data
+        networks:
+            - traefik_net
+        profiles:
+            - tools
+            - all
 
-  # Home Assistant
-  homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
-    container_name: homeassistant
-    restart: unless-stopped
-    network_mode: host
-    volumes:
-      - homeassistant_config:/config
-      - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro
-    environment:
-      - TZ=${TZ}
-    devices:
-      - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
-    labels:
-      - "traefik.enable=false"
-    depends_on:
-      - mosquitto
-      - zigbee2mqtt
-    profiles:
-      - domotique
-      - all
-
-  # Proxy pour Home Assistant (permet l'accès via Traefik)
-  homeassistant-proxy:
-    image: nginx:alpine
-    container_name: homeassistant-proxy
-    restart: unless-stopped
-    volumes:
-      - ./nginx-ha.conf:/etc/nginx/conf.d/default.conf:ro
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.homeassistant.rule=Host(`home.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.homeassistant.entrypoints=websecure"
-      - "traefik.http.routers.homeassistant.tls=true"
-      - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.homeassistant.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-    depends_on:
-      - homeassistant
-    profiles:
-      - domotique
-      - all
-
-  # Planka
-  planka:
-    image: ghcr.io/plankanban/planka:latest
-    container_name: planka
-    restart: unless-stopped
-    depends_on:
-      - planka-db
-    networks:
-      - traefik_net
-    environment:
-      - TRUST_PROXY=1
-      - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
-      - SECRET_KEY=${PLANKA_SECRET_KEY}
-      - BASE_URL=https://planka.${DOMAIN_BASE}
-      - DEFAULT_ADMIN_EMAIL=${PLANKA_DEFAULT_ADMIN_EMAIL}
-      - DEFAULT_ADMIN_USERNAME=${PLANKA_DEFAULT_ADMIN_USERNAME}
-      - DEFAULT_ADMIN_PASSWORD=${PLANKA_DEFAULT_ADMIN_PASSWORD}
-      - DEFAULT_ADMIN_NAME=${PLANKA_DEFAULT_ADMIN_NAME}
-      - TZ=${TZ}
-    volumes:
-      - favicons:/app/public/favicons
-      - user-avatars:/app/public/user-avatars
-      - background-images:/app/public/background-images
-      - attachments:/app/private/attachments
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.planka.entrypoints=websecure"
-      - "traefik.http.routers.planka.tls=true"
-      - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.planka.loadbalancer.server.port=1337"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - tools
-      - all
-
-  # PostgreSQL Planka - Base de données dédiée
-  planka-db:
-    image: postgres:15
-    container_name: planka-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${PLANKA_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${PLANKA_POSTGRES_DB}
-      TZ: ${TZ}
-    volumes:
-      - postgres_planka_data:/var/lib/postgresql/data
-    networks:
-      - traefik_net
-    profiles:
-      - tools
-      - all
+    # Home Assistant
+    homeassistant:
+        image: ghcr.io/home-assistant/home-assistant:stable
+        container_name: homeassistant
+        restart: unless-stopped
+        network_mode: host
+        volumes:
+            - homeassistant_config:/config
+            - /etc/localtime:/etc/localtime:ro
+            - /run/dbus:/run/dbus:ro
+        environment:
+            - TZ=${TZ}
+        devices:
+            - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.homeassistant.rule=Host(`home.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.homeassistant.entrypoints=websecure"
+            - "traefik.http.routers.homeassistant.tls=true"
+            - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
+        profiles:
+            - domotique
+            - all
 
 networks:
-  traefik_net:
-    name: traefik_net
-    external: true
-  homeassistant_net:
-    name: homeassistant_net
+    traefik_net:
+        name: traefik_net
+        external: true
 
 volumes:
-  # Traefik
-  traefik_letsencrypt:
-  traefik_config:
+    # Traefik
+    traefik_letsencrypt:
+    traefik_config:
 
-  # Homarr
-  homarr_data:
+    # Homarr
+    homarr_data:
 
-  # Portainer
-  portainer_data:
+    # Portainer
+    portainer_data:
 
-  # N8N
-  n8n_data:
+    # N8N
+    n8n_data:
 
-  # PostgreSQL N8N
-  postgres_n8n_data:
+    # PostgreSQL N8N
+    postgres_n8n_data:
 
-  # Planka
-  favicons:
-  user-avatars:
-  background-images:
-  attachments:
+    # Planka
+    favicons:
+    user-avatars:
+    background-images:
+    attachments:
 
-  # PostgreSQL Planka
-  postgres_planka_data:
+    # PostgreSQL Planka
+    postgres_planka_data:
 
-  # Overseerr
-  overseerr_config:
+    # Overseerr
+    overseerr_config:
 
-  # Home Assistant
-  homeassistant_config:
-
-  # Zigbee2MQTT
-  zigbee2mqtt_config:
-
-  # Mosquitto
-  mosquitto_config:
-  mosquitto_data:
-  mosquitto_log:
+    # Home Assistant
+    homeassistant_config:
