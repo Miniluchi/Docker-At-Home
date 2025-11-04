@@ -79,7 +79,12 @@ docker compose --profile media restart
 
 ### 🎬 Media
 
-- **Overseerr** : Interface de demandes de médias
+- **Jellyfin** : Serveur de streaming de médias (alternative open-source à Plex)
+- **Jellyseerr** : Interface de demandes de médias pour Jellyfin
+- **Radarr** : Gestionnaire automatique de films
+- **Sonarr** : Gestionnaire automatique de séries TV
+- **Prowlarr** : Gestionnaire d'indexeurs pour Radarr/Sonarr
+- **qBittorrent** : Client torrent avec interface web
 
 ### 🏠 Domotique
 
@@ -95,6 +100,26 @@ docker compose --profile media restart
 - **Planka** : Tableau Kanban pour gestion de projets
 - **Planka-DB** : Base de données PostgreSQL dédiée pour Planka
 - **Snapdrop** : Partage de fichiers local P2P
+
+## 📂 Structure des médias
+
+La stack media utilise une structure unifiée dans `${MEDIA_PATH}` :
+
+```
+/srv/.../media/
+├── downloads/          # Téléchargements qBittorrent
+│   ├── movies/        # Films en cours
+│   └── tv/            # Séries en cours
+├── movies/            # Bibliothèque films (Jellyfin)
+└── tv/                # Bibliothèque séries (Jellyfin)
+```
+
+**Configuration recommandée** :
+
+- Radarr → Dossier racine : `/data/movies`
+- Sonarr → Dossier racine : `/data/tv`
+- qBittorrent → Téléchargements : `/data/downloads`
+- Jellyfin → Bibliothèques : `/data/movies` et `/data/tv`
 
 ## 📋 Profils détaillés
 
@@ -116,9 +141,14 @@ Tableaux de bord et interfaces de contrôle.
 
 ### media
 
-Services liés à la gestion et diffusion de médias.
+Stack complète de gestion et diffusion de médias.
 
-- **overseerr** : Interface de demandes de médias pour Plex/Jellyfin
+- **jellyfin** : Serveur de streaming avec support transcoding (GPU non requis)
+- **jellyseerr** : Interface de demandes de médias avec gestion utilisateurs
+- **radarr** : Automatisation téléchargement et organisation des films
+- **sonarr** : Automatisation téléchargement et organisation des séries
+- **prowlarr** : Gestion centralisée des indexeurs torrent/usenet
+- **qbittorrent** : Client torrent avec interface web, configuration DNS personnalisée pour trackers
 
 ### domotique
 
