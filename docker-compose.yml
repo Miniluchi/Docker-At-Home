@@ -1,11 +1,11 @@
 # Docker Compose avec profils
 # Profils disponibles:
-# - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
+# - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homarr)
 # - dashboard: Tableaux de bord (Homarr)
-# - media: Services liés aux médias (Overseerr)
-# - automation: Services d'automatisation (n8n, n8n-db)
-# - tools: Outils divers (snapdrop, planka, planka-db)
-# - domotique: Services domotique (Home Assistant)
+# - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
+# - automation: Services d'automatisation (N8N, n8n-db PostgreSQL)
+# - tools: Outils divers (Planka, planka-db PostgreSQL, Snapdrop)
+# - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - all: Tous les services
 #
 # Utilisation:
