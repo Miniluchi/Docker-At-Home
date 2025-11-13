@@ -8,7 +8,7 @@ Cette stack utilise un fichier `docker-compose.yml` unique avec des **profils** 
 
 - **infrastructure** : Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homarr)
 - **dashboard** : Tableaux de bord (Homarr)
-- **media** : Services liés aux médias (Overseerr)
+- **media** : Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 - **domotique** : Services domotiques (Home Assistant)
 - **automation** : Services d'automatisation (N8N avec PostgreSQL dédié)
 - **tools** : Outils divers (Planka avec PostgreSQL dédié, Snapdrop)
