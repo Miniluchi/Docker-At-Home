@@ -192,6 +192,7 @@ Outils divers et utilitaires avec bases de données dédiées.
 
 - **Homarr** : SSO OIDC avec support des groupes et auto-login optionnel
 - **Jellyfin** : SSO OIDC configuré (à vérifier dans l'interface)
+- **Portainer** : SSO OIDC (configuration manuelle requise dans l'interface)
 
 #### 🔹 Authentification via Proxy (Forward Auth)
 
@@ -241,6 +242,52 @@ HOMARR_OIDC_CLIENT_ID=<client_id_depuis_authentik>
 HOMARR_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
 HOMARR_OIDC_SLUG=<slug_application_authentik>
 HOMARR_OIDC_AUTO_LOGIN=false  # true pour auto-login
+```
+
+#### Exemple : Configuration Portainer (OIDC)
+
+**⚠️ Note** : Portainer nécessite une configuration manuelle dans son interface web car il ne supporte pas les variables d'environnement pour OIDC.
+
+**Étapes de configuration** :
+
+1. **Dans Authentik** : Créer un provider OIDC
+   - Aller dans `Applications` → `Providers` → `Create`
+   - Type : `OAuth2/OpenID Provider`
+   - Name : `portainer`
+   - Authorization flow : Choisir un flow (ex: `default-authorization-flow`)
+   - Redirect URIs : `https://portainer.${DOMAIN_BASE}`
+   - Signing Key : Sélectionner une clé disponible
+   - Copier le `Client ID` et `Client Secret` générés
+
+2. **Dans Authentik** : Créer une application
+   - Aller dans `Applications` → `Create`
+   - Name : `Portainer`
+   - Slug : `portainer`
+   - Provider : Sélectionner le provider créé précédemment
+
+3. **Dans Portainer** : Activer OIDC
+   - Se connecter en tant qu'administrateur local
+   - Aller dans `Settings` → `Authentication`
+   - Activer `OAuth`
+   - Renseigner :
+     - **Automatic user provision** : On
+     - **Provider** : Custom
+     - **Client ID** : Celui généré dans Authentik
+     - **Client Secret** : Celui généré dans Authentik
+     - **Authorization URL** : `https://auth.${DOMAIN_BASE}/application/o/authorize/`
+     - **Access token URL** : `https://auth.${DOMAIN_BASE}/application/o/token/`
+     - **Resource URL** : `https://auth.${DOMAIN_BASE}/application/o/userinfo/`
+     - **Redirect URL** : `https://portainer.${DOMAIN_BASE}`
+     - **User identifier** : `preferred_username` ou `email`
+     - **Scopes** : `openid profile email`
+
+4. **Tester la connexion** : Se déconnecter et tester l'authentification via Authentik
+
+**Variables d'environnement dans `.env`** (pour référence uniquement) :
+
+```bash
+PORTAINER_OIDC_CLIENT_ID=<client_id_depuis_authentik>
+PORTAINER_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
 ```
 
 #### Exemple : Configuration Stack Arr (Proxy Provider)
