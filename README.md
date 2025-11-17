@@ -6,8 +6,8 @@ Stack Docker pour auto-hébergement de services domestiques, organisée par prof
 
 Cette stack utilise un fichier `docker-compose.yml` unique avec des **profils** pour organiser les services par catégories :
 
-- **infrastructure** : Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homarr, Authentik)
-- **dashboard** : Tableaux de bord (Homarr)
+- **infrastructure** : Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homepage, Authentik, Glances)
+- **dashboard** : Tableaux de bord (Homepage)
 - **media** : Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 - **domotique** : Services domotiques (Home Assistant)
 - **automation** : Services d'automatisation (N8N avec PostgreSQL dédié)
@@ -75,8 +75,9 @@ docker compose --profile media restart
 - **OMV-Proxy** : Proxy nginx pour OpenMediaVault
 - **Portainer** : Gestion des conteneurs Docker
 - **Watchtower** : Mises à jour automatiques des conteneurs avec notifications email
-- **Homarr** : Dashboard principal d'accueil avec SSO Authentik
-- **Authentik** : Serveur SSO/Identity Provider (OIDC, OAuth2) avec base de données PostgreSQL dédiée
+- **Homepage** : Dashboard principal d'accueil avec SSO Authentik via Forward Auth
+- **Authentik** : Serveur SSO/Identity Provider (OIDC, OAuth2, Forward Auth) avec base de données PostgreSQL dédiée
+- **Glances** : Monitoring système en temps réel (accès local uniquement sur port 61208)
 
 ### 🎬 Media
 
@@ -130,18 +131,19 @@ Services de base nécessaires au fonctionnement de la stack.
 
 - **traefik** : Reverse proxy avec SSL automatique (Let's Encrypt)
 - **omv-proxy** : Proxy nginx pour accès à OpenMediaVault via Traefik
-- **portainer** : Interface web de gestion Docker
+- **portainer** : Interface web de gestion Docker (dépend d'Authentik pour le démarrage)
 - **watchtower** : Mises à jour automatiques des conteneurs (vérification quotidienne)
-- **homarr** : Dashboard principal avec widgets personnalisables et SSO OIDC Authentik
-- **authentik-server** : Serveur SSO/Identity Provider avec support OIDC et OAuth2
+- **homepage** : Dashboard principal avec widgets personnalisables et SSO Authentik via Forward Auth
+- **authentik-server** : Serveur SSO/Identity Provider avec support OIDC, OAuth2 et Forward Auth
 - **authentik-worker** : Worker pour tâches en arrière-plan (provisioning, webhooks, etc.)
 - **authentik-db** : PostgreSQL 16 dédié pour Authentik
+- **glances** : Monitoring système en temps réel (CPU, RAM, réseau, Docker) accessible sur port 61208
 
 ### dashboard
 
 Tableaux de bord et interfaces de contrôle.
 
-- **homarr** : Dashboard avec widgets personnalisables
+- **homepage** : Dashboard léger avec widgets personnalisables et protection SSO
 
 ### media
 
@@ -181,32 +183,32 @@ Outils divers et utilitaires avec bases de données dédiées.
 
 **Authentik** est un Identity Provider (IdP) open-source qui fournit l'authentification unique (SSO) pour tous vos services. Il prend en charge plusieurs protocoles d'authentification :
 
-- **OIDC** (OpenID Connect) : Utilisé par Homarr
+- **OIDC** (OpenID Connect) : Pour les applications avec support natif
 - **OAuth2** : Pour les applications modernes
 - **SAML** : Pour les applications d'entreprise
-- **Proxy Provider** : Pour les applications sans support SSO natif (Radarr, Sonarr, Prowlarr)
+- **Forward Auth** : Pour les applications sans support SSO natif (Radarr, Sonarr, Prowlarr, Homepage)
 
 ### Services protégés par Authentik
 
-#### 🔹 Authentification OIDC native
+#### 🔹 Authentification Forward Auth (via Traefik)
 
-- **Homarr** : SSO OIDC avec support des groupes et auto-login optionnel
-- **Jellyfin** : SSO OIDC configuré (à vérifier dans l'interface)
-- **Portainer** : SSO OIDC (configuration manuelle requise dans l'interface)
+Les services suivants utilisent Authentik comme proxy d'authentification via les middlewares Traefik Forward Auth :
 
-#### 🔹 Authentification via Proxy (Forward Auth)
-
-Les services suivants utilisent Authentik comme proxy d'authentification via les middlewares Traefik :
-
+- **Homepage** : Dashboard protégé par authentification Authentik
 - **Radarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
 - **Sonarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
 - **Prowlarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
 
 **⚠️ Important** : Ces services ont leur authentification interne désactivée et dépendent entièrement d'Authentik. Si Authentik ne démarre pas, ces services seront **inaccessibles** (erreur 502/503) mais **sécurisés**.
 
+#### 🔹 Authentification OIDC native (configuration manuelle)
+
+- **Portainer** : SSO OIDC (configuration manuelle requise dans l'interface)
+- **Jellyfin** : SSO OIDC (configuration via plugin SSO)
+
 ### Configuration des dépendances
 
-Les services Arr (Radarr, Sonarr, Prowlarr) ont une dépendance explicite sur Authentik :
+Plusieurs services ont une dépendance explicite sur Authentik :
 
 ```yaml
 depends_on:
@@ -214,11 +216,17 @@ depends_on:
     condition: service_healthy
 ```
 
+**Services concernés** :
+
+- Radarr, Sonarr, Prowlarr (Stack Arr)
+- Portainer
+- Homepage
+
 **Comportement** :
 
-- ✅ Les services Arr ne démarreront **que si Authentik est opérationnel**
+- ✅ Ces services ne démarreront **que si Authentik est opérationnel**
 - ✅ Garantit que l'authentification est disponible avant l'accès aux services
-- ⚠️ Si Authentik tombe, les services Arr ne redémarreront pas automatiquement
+- ⚠️ Si Authentik tombe, ces services ne redémarreront pas automatiquement
 
 ### Accès à Authentik
 
@@ -229,19 +237,27 @@ depends_on:
 
 Pour chaque service protégé par Authentik, vous devez créer :
 
-1. **Provider** : Configure le protocole d'authentification (OIDC, Proxy, etc.)
+1. **Provider** : Configure le protocole d'authentification (OIDC, Forward Auth, etc.)
 2. **Application** : Relie le provider à votre service
-3. **Outpost** : Pour les Proxy Providers (embedded outpost pour la stack Arr)
+3. **Embedded Outpost** : Pour le Forward Auth (inclus dans le serveur Authentik)
 
-#### Exemple : Configuration Homarr (OIDC)
+#### Exemple : Configuration Homepage (Forward Auth)
 
-Variables d'environnement requises dans `.env` :
+Homepage utilise le Forward Auth intégré d'Authentik. La configuration est automatique via les labels Traefik :
+
+```yaml
+labels:
+  - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
+  - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+  - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
+  - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+```
+
+Variables d'environnement dans `.env` :
 
 ```bash
-HOMARR_OIDC_CLIENT_ID=<client_id_depuis_authentik>
-HOMARR_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
-HOMARR_OIDC_SLUG=<slug_application_authentik>
-HOMARR_OIDC_AUTO_LOGIN=false  # true pour auto-login
+HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
+HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
 ```
 
 #### Exemple : Configuration Portainer (OIDC)
@@ -290,12 +306,25 @@ PORTAINER_OIDC_CLIENT_ID=<client_id_depuis_authentik>
 PORTAINER_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
 ```
 
-#### Exemple : Configuration Stack Arr (Proxy Provider)
+#### Exemple : Configuration Stack Arr (Forward Auth)
 
-1. Créer un **Proxy Provider** dans Authentik
-2. Créer une **Application** pour chaque service (Radarr, Sonarr, Prowlarr)
-3. Déployer un **Embedded Outpost** nommé `arr-stack-embedded-outpost`
-4. Les middlewares Traefik se connectent à : `http://ak-outpost-arr-stack-embedded-outpost:9000`
+La stack Arr utilise le Forward Auth intégré d'Authentik via les middlewares Traefik. La configuration est similaire à Homepage :
+
+1. Créer une **Application** dans Authentik pour chaque service (Radarr, Sonarr, Prowlarr)
+2. Configurer un **Forward Auth Provider** pointant vers chaque application
+3. Les middlewares Traefik se connectent directement à : `http://authentik-server:9000/outpost.goauthentik.io/auth/traefik`
+
+### Monitoring avec Glances
+
+**Glances** est un outil de monitoring système en temps réel accessible localement :
+
+- **URL** : `http://<ip_serveur>:61208`
+- **Fonctionnalités** :
+  - Monitoring CPU, RAM, disques, réseau
+  - Surveillance des conteneurs Docker
+  - Accès en lecture seule au système hôte (PID host)
+
+**⚠️ Sécurité** : Glances est accessible uniquement en local (pas d'exposition via Traefik) et n'est pas protégé par Authentik.
 
 ### Sécurité
 
@@ -305,6 +334,7 @@ PORTAINER_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
 - ✅ Gestion unifiée des utilisateurs et groupes
 - ✅ Support 2FA/MFA natif
 - ✅ Logs d'authentification centralisés
+- ✅ Monitoring système avec Glances
 
 **Risques à considérer** :
 
