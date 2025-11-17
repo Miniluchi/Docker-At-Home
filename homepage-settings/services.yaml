@@ -1,0 +1,79 @@
+---
+# Homepage Services Configuration
+# Documentation: https://gethomepage.dev/configs/services/
+
+- Infrastructure:
+      - Portainer:
+            href: https://portainer.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: portainer.png
+            description: Gestion Docker
+      - Authentik:
+            href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: authentik.png
+            description: SSO / Identity Provider
+
+- Medias:
+      - Jellyfin:
+            href: https://jellyfin.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: jellyfin.png
+            description: Streaming vidéo
+      - Jellyseerr:
+            href: https://jellyseerr.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: jellyseerr.png
+            description: Demandes de médias
+      - Radarr:
+            href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: radarr.png
+            description: Gestionnaire films
+      - Sonarr:
+            href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: sonarr.png
+            description: Gestionnaire séries
+      - Prowlarr:
+            href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: prowlarr.png
+            description: Indexeurs
+      - qBittorrent:
+            href: https://qbittorrent.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: qbittorrent.png
+            description: Client torrent
+
+- Automatisation:
+      - N8N:
+            href: https://n8n.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: n8n.png
+            description: Automatisation workflows
+      - Home Assistant:
+            href: https://home.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: home-assistant.png
+            description: Domotique
+
+- Outils:
+      - Planka:
+            href: https://planka.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: planka.png
+            description: Kanban / Gestion projets
+      - Snapdrop:
+            href: https://snapdrop.{{HOMEPAGE_VAR_DOMAIN}}
+            icon: snapdrop.png
+            description: Partage fichiers P2P
+
+- Metriques:
+      - Glances CPU:
+            widget:
+                type: glances
+                url: http://glances:61208
+                version: 4
+                metric: cpu
+                chart: true
+                refreshInterval: 3000
+                pointsLimit: 30
+      - Glances Memory:
+            widget:
+                type: glances
+                url: http://glances:61208
+                version: 4
+                metric: memory
+                chart: true
+                refreshInterval: 3000
+                pointsLimit: 30
