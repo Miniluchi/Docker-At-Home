@@ -59,7 +59,7 @@
             description: Partage fichiers P2P
 
 - Metriques:
-      - Glances CPU:
+      - CPU:
             widget:
                 type: glances
                 url: http://glances:61208
@@ -68,7 +68,7 @@
                 chart: true
                 refreshInterval: 3000
                 pointsLimit: 30
-      - Glances Memory:
+      - Memory:
             widget:
                 type: glances
                 url: http://glances:61208
