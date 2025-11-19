@@ -10,7 +10,6 @@ Cette stack utilise un fichier `docker-compose.yml` unique avec des **profils** 
 - **dashboard** : Tableaux de bord (Homepage)
 - **media** : Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 - **domotique** : Services domotiques (Home Assistant)
-- **automation** : Services d'automatisation (N8N avec PostgreSQL dédié)
 - **tools** : Outils divers (Planka avec PostgreSQL dédié, Snapdrop)
 - **all** : Tous les services
 
@@ -92,11 +91,6 @@ docker compose --profile media restart
 
 - **Home Assistant** : Centre de contrôle domotique (mode host) avec intégration ZHA pour Zigbee
 
-### 🤖 Automation
-
-- **N8N** : Plateforme d'automatisation de workflows
-- **N8N-DB** : Base de données PostgreSQL dédiée pour N8N
-
 ### 🛠️ Tools
 
 - **Planka** : Tableau Kanban pour gestion de projets
@@ -162,13 +156,6 @@ Stack complète de gestion et diffusion de médias.
 
 - **homeassistant** : Centre de contrôle domotique (mode host pour accès périphériques)
 
-### automation
-
-Services d'automatisation et workflows avec base de données dédiée.
-
-- **n8n** : Plateforme d'automatisation avec authentification HTTP Basic
-- **n8n-db** : PostgreSQL 15 dédié pour persistance des workflows
-
 ### tools
 
 Outils divers et utilitaires avec bases de données dédiées.
@@ -205,6 +192,7 @@ Les services suivants utilisent Authentik comme proxy d'authentification via les
 
 - **Portainer** : SSO OIDC (configuration manuelle requise dans l'interface)
 - **Jellyfin** : SSO OIDC (configuration via plugin SSO)
+- **Planka** : SSO OIDC (configuration via variables d'environnement)
 
 ### Configuration des dépendances
 
@@ -221,6 +209,7 @@ depends_on:
 - Radarr, Sonarr, Prowlarr (Stack Arr)
 - Portainer
 - Homepage
+- Planka
 
 **Comportement** :
 
