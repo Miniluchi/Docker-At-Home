@@ -851,3 +851,8 @@ volumes:
     authentik_media:
     authentik_certs:
     authentik_custom_templates:
+
+    # OpenProject
+    postgres_openproject_data:
+    openproject_assets:
+    openproject_pgdata:
