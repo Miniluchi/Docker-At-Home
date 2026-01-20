@@ -39,10 +39,6 @@
             description: Client torrent
 
 - Automatisation:
-      - N8N:
-            href: https://n8n.{{HOMEPAGE_VAR_DOMAIN}}
-            icon: n8n.png
-            description: Automatisation workflows
       - Home Assistant:
             href: https://home.{{HOMEPAGE_VAR_DOMAIN}}
             icon: home-assistant.png
