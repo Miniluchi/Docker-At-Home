@@ -17,936 +17,929 @@
 # - Arrêter un profil: docker compose --profile media down
 
 services:
-    # Traefik - Reverse Proxy
-    traefik:
-        image: traefik:latest
-        container_name: traefik
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 128M
-                reservations:
-                    memory: 64M
-        environment:
-            - TZ=${TZ}
-        healthcheck:
-            test: ["CMD", "traefik", "healthcheck", "--ping"]
-            interval: 10s
-            timeout: 5s
-            retries: 3
-        command:
-            - "--api.dashboard=false"
-            - "--api.insecure=true"
-            - "--providers.docker=true"
-            - "--log.level=DEBUG"
-            - "--ping=true"
-            - "--entrypoints.web.address=:80"
-            - "--entrypoints.websecure.address=:443"
-            - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
-            - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
-            - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
-            - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-            - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-        ports:
-            - 80:80
-            - 443:443
-        extra_hosts:
-            - "host.docker.internal:host-gateway" # A TESTER
-        volumes:
-            - "/var/run/docker.sock:/var/run/docker.sock:ro"
-            - traefik_letsencrypt:/letsencrypt
-            - traefik_config:/etc/traefik
-        networks:
-            - traefik_net
-        profiles:
-            - infrastructure
-            - all
+  # Traefik - Reverse Proxy
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    command:
+      - "--api.dashboard=false"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--log.level=DEBUG"
+      - "--ping=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
+      - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+    ports:
+      - 80:80
+      - 443:443
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # A TESTER
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - traefik_letsencrypt:/letsencrypt
+      - traefik_config:/etc/traefik
+    networks:
+      - traefik_net
+    profiles:
+      - infrastructure
+      - all
 
-    # Proxy pour OpenMediaVault (permet l'accès via Traefik)
-    omv-proxy:
-        image: nginx:alpine
-        container_name: omv-proxy
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 32M
-                reservations:
-                    memory: 16M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        networks:
-            - traefik_net
-        volumes:
-            - ./nginx-omv.conf:/etc/nginx/nginx.conf:ro
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.omv.rule=Host(`omv.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.omv.entrypoints=websecure"
-            - "traefik.http.routers.omv.tls=true"
-            - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.omv.loadbalancer.server.port=80"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.omv.middlewares=authentik-omv@docker"
-            - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-omv.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        environment:
-            - TZ=${TZ}
-        profiles:
-            - infrastructure
-            - all
+  # Proxy pour OpenMediaVault (permet l'accès via Traefik)
+  omv-proxy:
+    image: nginx:alpine
+    container_name: omv-proxy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 16M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    volumes:
+      - ./nginx-omv.conf:/etc/nginx/nginx.conf:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.omv.rule=Host(`omv.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.omv.entrypoints=websecure"
+      - "traefik.http.routers.omv.tls=true"
+      - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.omv.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.omv.middlewares=authentik-omv@docker"
+      - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-omv.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    environment:
+      - TZ=${TZ}
+    profiles:
+      - infrastructure
+      - all
 
-    # Homarr - Dashboard
-    # Portainer - Container Management
-    portainer:
-        image: portainer/portainer-ce:latest
-        container_name: portainer
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 128M
-                reservations:
-                    memory: 64M
-        networks:
-            - traefik_net
-        volumes:
-            - "/var/run/docker.sock:/var/run/docker.sock:ro"
-            - portainer_data:/data
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.portainer.entrypoints=websecure"
-            - "traefik.http.routers.portainer.tls=true"
-            - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.portainer.loadbalancer.server.port=9000"
-            - "traefik.docker.network=traefik_net"
-            # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
-        security_opt:
-            - no-new-privileges:true
-        environment:
-            - TZ=${TZ}
-        depends_on:
-            - traefik
-            - authentik-server
-        profiles:
-            - infrastructure
-            - all
+  # Homarr - Dashboard
+  # Portainer - Container Management
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    networks:
+      - traefik_net
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - portainer_data:/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls=true"
+      - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.docker.network=traefik_net"
+      # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ}
+    depends_on:
+      - traefik
+      - authentik-server
+    profiles:
+      - infrastructure
+      - all
 
-    # Watchtower - Auto-updates
-    watchtower:
-        image: containrrr/watchtower:latest
-        container_name: watchtower
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 32M
-                reservations:
-                    memory: 16M
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-        command: --cleanup --interval 86400
-        environment:
-            - TZ=${TZ}
-            - WATCHTOWER_NOTIFICATIONS=email
-            - WATCHTOWER_NOTIFICATION_EMAIL_FROM=${WATCHTOWER_NOTIFICATION_EMAIL_FROM}
-            - WATCHTOWER_NOTIFICATION_EMAIL_TO=${WATCHTOWER_NOTIFICATION_EMAIL_TO}
-            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER}
-            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT}
-            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER}
-            - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD}
-            - WATCHTOWER_NOTIFICATION_EMAIL_DELAY=2
-        profiles:
-            - infrastructure
-            - all
+  # Watchtower - Auto-updates
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 16M
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --cleanup --interval 86400
+    environment:
+      - TZ=${TZ}
+      - WATCHTOWER_NOTIFICATIONS=email
+      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=${WATCHTOWER_NOTIFICATION_EMAIL_FROM}
+      - WATCHTOWER_NOTIFICATION_EMAIL_TO=${WATCHTOWER_NOTIFICATION_EMAIL_TO}
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER}
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT}
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER}
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD}
+      - WATCHTOWER_NOTIFICATION_EMAIL_DELAY=2
+    profiles:
+      - infrastructure
+      - all
 
-    # Snapdrop - Partage de fichiers local
-    snapdrop:
-        image: linuxserver/snapdrop:version-f88d46ed
-        container_name: snapdrop
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 64M
-                reservations:
-                    memory: 32M
-        networks:
-            - traefik_net
-        environment:
-            - TZ=${TZ}
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.snapdrop.rule=Host(`snapdrop.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.snapdrop.entrypoints=websecure"
-            - "traefik.http.routers.snapdrop.tls=true"
-            - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - tools
-            - all
+  # Snapdrop - Partage de fichiers local
+  snapdrop:
+    image: linuxserver/snapdrop:version-f88d46ed
+    container_name: snapdrop
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    networks:
+      - traefik_net
+    environment:
+      - TZ=${TZ}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.snapdrop.rule=Host(`snapdrop.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.snapdrop.entrypoints=websecure"
+      - "traefik.http.routers.snapdrop.tls=true"
+      - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - tools
+      - all
 
-    # Jellyseerr - Demandes de médias pour Jellyfin
-    jellyseerr:
-        image: ghcr.io/fallenbagel/jellyseerr:latest
-        container_name: jellyseerr
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 512M
-                reservations:
-                    memory: 256M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "wget --no-verbose --tries=1 --spider http://127.0.0.1:5055/api/v1/status || exit 1",
-                ]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 30s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - LOG_LEVEL=info
-            - TZ=${TZ}
-        volumes:
-            - jellyseerr_config:/app/config
-        networks:
-            - traefik_net
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.jellyseerr.entrypoints=websecure"
-            - "traefik.http.routers.jellyseerr.tls=true"
-            - "traefik.http.routers.jellyseerr.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.jellyseerr.middlewares=authentik-jellyseerr@docker"
-            - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        profiles:
-            - media
-            - all
+  # Jellyseerr - Demandes de médias pour Jellyfin
+  jellyseerr:
+    image: ghcr.io/fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:5055/api/v1/status || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - LOG_LEVEL=info
+      - TZ=${TZ}
+    volumes:
+      - jellyseerr_config:/app/config
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyseerr.rule=Host(`jellyseerr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.jellyseerr.entrypoints=websecure"
+      - "traefik.http.routers.jellyseerr.tls=true"
+      - "traefik.http.routers.jellyseerr.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.jellyseerr.middlewares=authentik-jellyseerr@docker"
+      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - media
+      - all
 
-    # Jellyfin - Media Server
-    jellyfin:
-        image: lscr.io/linuxserver/jellyfin:latest
-        container_name: jellyfin
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 1G
-                reservations:
-                    memory: 256M
-        healthcheck:
-            test:
-                ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 60s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - TZ=${TZ}
-            - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN_BASE}
-        volumes:
-            - jellyfin_config:/config
-            - ${MEDIA_PATH}:/data
-            - jellyfin_cache:/config/cache # Cache séparé pour meilleures perfs
-        devices:
-            - /dev/dri/renderD128:/dev/dri/renderD128 # GPU render device (principal)
-            - /dev/dri/card0:/dev/dri/card0 # GPU card 0
-            - /dev/dri/card1:/dev/dri/card1 # GPU card 1
-            - /dev/video19:/dev/video19 # HEVC/H265 decoder
-        group_add:
-            - "44" # video group
-            - "109" # render group
-        networks:
-            - traefik_net
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.jellyfin.entrypoints=websecure"
-            - "traefik.http.routers.jellyfin.tls=true"
-            - "traefik.http.routers.jellyfin.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - media
-            - all
+  # Jellyfin - Media Server
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN_BASE}
+    volumes:
+      - jellyfin_config:/config
+      - ${MEDIA_PATH}:/data
+      - jellyfin_cache:/config/cache # Cache séparé pour meilleures perfs
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128 # GPU render device (principal)
+      - /dev/dri/card0:/dev/dri/card0 # GPU card 0
+      - /dev/dri/card1:/dev/dri/card1 # GPU card 1
+      - /dev/video19:/dev/video19 # HEVC/H265 decoder
+    group_add:
+      - "44" # video group
+      - "109" # render group
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.jellyfin.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin.tls=true"
+      - "traefik.http.routers.jellyfin.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - media
+      - all
 
-    # Radarr - Films
-    radarr:
-        image: lscr.io/linuxserver/radarr:latest
-        container_name: radarr
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 30s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - TZ=${TZ}
-        volumes:
-            - radarr_config:/config
-            - ${MEDIA_PATH}:/data
-        networks:
-            - traefik_net
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.radarr.entrypoints=websecure"
-            - "traefik.http.routers.radarr.tls=true"
-            - "traefik.http.routers.radarr.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.radarr.loadbalancer.server.port=7878"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.radarr.middlewares=authentik-radarr@docker"
-            - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-radarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        profiles:
-            - media
-            - all
+  # Radarr - Films
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - radarr_config:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.radarr.entrypoints=websecure"
+      - "traefik.http.routers.radarr.tls=true"
+      - "traefik.http.routers.radarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.radarr.loadbalancer.server.port=7878"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.radarr.middlewares=authentik-radarr@docker"
+      - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-radarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - media
+      - all
 
-    # Sonarr - Séries TV
-    sonarr:
-        image: lscr.io/linuxserver/sonarr:latest
-        container_name: sonarr
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 30s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - TZ=${TZ}
-        volumes:
-            - sonarr_config:/config
-            - ${MEDIA_PATH}:/data
-        networks:
-            - traefik_net
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.sonarr.entrypoints=websecure"
-            - "traefik.http.routers.sonarr.tls=true"
-            - "traefik.http.routers.sonarr.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.sonarr.middlewares=authentik-sonarr@docker"
-            - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-sonarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        profiles:
-            - media
-            - all
+  # Sonarr - Séries TV
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - sonarr_config:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.sonarr.entrypoints=websecure"
+      - "traefik.http.routers.sonarr.tls=true"
+      - "traefik.http.routers.sonarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.sonarr.middlewares=authentik-sonarr@docker"
+      - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-sonarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - media
+      - all
 
-    # qBittorrent - Client Torrent
-    qbittorrent:
-        image: lscr.io/linuxserver/qbittorrent:latest
-        container_name: qbittorrent
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 30s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - TZ=${TZ}
-            - WEBUI_PORT=8080
-        volumes:
-            - qbittorrent_config:/config
-            - ${MEDIA_PATH}:/data
-        networks:
-            - traefik_net
-        extra_hosts:
-            - "www.sharewood.tv:89.249.49.99"
-            - "sharewood.tv:89.249.49.99"
-            - "tracker.sharewood.tv:89.249.49.99"
-        dns:
-            - 1.1.1.1
-            - 8.8.8.8
-            - 9.9.9.9
-        ports:
-            - "6881:6881"
-            - "6881:6881/udp"
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.qbittorrent.rule=Host(`qbt.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.qbittorrent.entrypoints=websecure"
-            - "traefik.http.routers.qbittorrent.tls=true"
-            - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - media
-            - all
+  # qBittorrent - Client Torrent
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=8080
+    volumes:
+      - qbittorrent_config:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - traefik_net
+    extra_hosts:
+      - "www.sharewood.tv:89.249.49.99"
+      - "sharewood.tv:89.249.49.99"
+      - "tracker.sharewood.tv:89.249.49.99"
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.tls=true"
+      - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.qbittorrent.middlewares=authentik-qbittorrent@docker"
+      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - media
+      - all
 
-    # Prowlarr - Indexer Manager
-    prowlarr:
-        image: lscr.io/linuxserver/prowlarr:latest
-        container_name: prowlarr
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 30s
-        environment:
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - TZ=${TZ}
-        volumes:
-            - prowlarr_config:/config
-        networks:
-            - traefik_net
-        dns:
-            - 1.1.1.1
-            - 8.8.8.8
-            - 9.9.9.9
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.prowlarr.entrypoints=websecure"
-            - "traefik.http.routers.prowlarr.tls=true"
-            - "traefik.http.routers.prowlarr.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.prowlarr.middlewares=authentik-prowlarr@docker"
-            - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-prowlarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        profiles:
-            - media
-            - all
+  # Prowlarr - Indexer Manager
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - prowlarr_config:/config
+    networks:
+      - traefik_net
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.tls=true"
+      - "traefik.http.routers.prowlarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.prowlarr.middlewares=authentik-prowlarr@docker"
+      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - media
+      - all
 
-    # Planka
-    planka:
-        image: ghcr.io/plankanban/planka:latest
-        container_name: planka
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        depends_on:
-            planka-db:
-                condition: service_healthy
-            authentik-server:
-                condition: service_healthy
-        networks:
-            - traefik_net
-        environment:
-            - TRUST_PROXY=1
-            - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
-            - SECRET_KEY=${PLANKA_SECRET_KEY}
-            - BASE_URL=https://planka.${DOMAIN_BASE}
-            - TZ=${TZ}
-            # OIDC Configuration avec Authentik
-            - OIDC_ISSUER=https://auth.${DOMAIN_BASE}/application/o/planka/
-            - OIDC_CLIENT_ID=${PLANKA_OIDC_CLIENT_ID}
-            - OIDC_CLIENT_SECRET=${PLANKA_OIDC_CLIENT_SECRET}
-            - OIDC_SCOPES=openid profile email
-            - OIDC_ADMIN_ROLES=${PLANKA_OIDC_ADMIN_ROLES}
-            - OIDC_EMAIL_ATTRIBUTE=email
-            - OIDC_NAME_ATTRIBUTE=name
-            - OIDC_USERNAME_ATTRIBUTE=preferred_username
-            - OIDC_ROLES_ATTRIBUTE=groups
-            - OIDC_ENFORCED=true
-        volumes:
-            - favicons:/app/public/favicons
-            - user-avatars:/app/public/user-avatars
-            - background-images:/app/public/background-images
-            - attachments:/app/private/attachments
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.planka.entrypoints=websecure"
-            - "traefik.http.routers.planka.tls=true"
-            - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.planka.loadbalancer.server.port=1337"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - tools
-            - all
+  # Planka
+  planka:
+    image: ghcr.io/plankanban/planka:latest
+    container_name: planka
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      planka-db:
+        condition: service_healthy
+      authentik-server:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    environment:
+      - TRUST_PROXY=1
+      - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
+      - SECRET_KEY=${PLANKA_SECRET_KEY}
+      - BASE_URL=https://planka.${DOMAIN_BASE}
+      - TZ=${TZ}
+      # OIDC Configuration avec Authentik
+      - OIDC_ISSUER=https://auth.${DOMAIN_BASE}/application/o/planka/
+      - OIDC_CLIENT_ID=${PLANKA_OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${PLANKA_OIDC_CLIENT_SECRET}
+      - OIDC_SCOPES=openid profile email
+      - OIDC_ADMIN_ROLES=${PLANKA_OIDC_ADMIN_ROLES}
+      - OIDC_EMAIL_ATTRIBUTE=email
+      - OIDC_NAME_ATTRIBUTE=name
+      - OIDC_USERNAME_ATTRIBUTE=preferred_username
+      - OIDC_ROLES_ATTRIBUTE=groups
+      - OIDC_ENFORCED=true
+    volumes:
+      - favicons:/app/public/favicons
+      - user-avatars:/app/public/user-avatars
+      - background-images:/app/public/background-images
+      - attachments:/app/private/attachments
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.planka.entrypoints=websecure"
+      - "traefik.http.routers.planka.tls=true"
+      - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.planka.loadbalancer.server.port=1337"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - tools
+      - all
 
-    # PostgreSQL Planka - Base de données dédiée
-    planka-db:
-        image: postgres:15
-        container_name: planka-db
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}",
-                ]
-            interval: 30s
-            timeout: 5s
-            retries: 5
-            start_period: 20s
-        environment:
-            POSTGRES_USER: ${PLANKA_POSTGRES_USER}
-            POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
-            POSTGRES_DB: ${PLANKA_POSTGRES_DB}
-            TZ: ${TZ}
-        volumes:
-            - postgres_planka_data:/var/lib/postgresql/data
-        networks:
-            - traefik_net
-        profiles:
-            - tools
-            - all
+  # PostgreSQL Planka - Base de données dédiée
+  planka-db:
+    image: postgres:15
+    container_name: planka-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      POSTGRES_USER: ${PLANKA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PLANKA_POSTGRES_DB}
+      TZ: ${TZ}
+    volumes:
+      - postgres_planka_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+    profiles:
+      - tools
+      - all
 
-    # Home Assistant
-    homeassistant:
-        image: ghcr.io/home-assistant/home-assistant:stable
-        container_name: homeassistant
-        restart: unless-stopped
-        network_mode: host
-        deploy:
-            resources:
-                limits:
-                    memory: 512M
-                reservations:
-                    memory: 256M
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "wget --no-verbose --tries=1 --spider http://127.0.0.1:8123/ || exit 1",
-                ]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 60s
-        volumes:
-            - homeassistant_config:/config
-            - /etc/localtime:/etc/localtime:ro
-            - /run/dbus:/run/dbus:ro
-        environment:
-            - TZ=${TZ}
-        devices:
-            - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.homeassistant.rule=Host(`home.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.homeassistant.entrypoints=websecure"
-            - "traefik.http.routers.homeassistant.tls=true"
-            - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
-        profiles:
-            - domotique
-            - all
+  # Home Assistant
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:8123/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - homeassistant_config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    environment:
+      - TZ=${TZ}
+    devices:
+      - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`home.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.tls=true"
+      - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
+    profiles:
+      - domotique
+      - all
 
-    # PostgreSQL Authentik - Base de données dédiée
-    authentik-db:
-        image: postgres:16-alpine
-        container_name: authentik-db
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 512M
-                reservations:
-                    memory: 256M
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}",
-                ]
-            interval: 30s
-            timeout: 5s
-            retries: 5
-            start_period: 20s
-        environment:
-            POSTGRES_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-            POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?authentik database password required}
-            POSTGRES_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
-            TZ: ${TZ}
-        volumes:
-            - postgres_authentik_data:/var/lib/postgresql/data
-        networks:
-            - traefik_net
-        profiles:
-            - infrastructure
-            - devtools
-            - all
+  # PostgreSQL Authentik - Base de données dédiée
+  authentik-db:
+    image: postgres:16-alpine
+    container_name: authentik-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      POSTGRES_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?authentik database password required}
+      POSTGRES_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      TZ: ${TZ}
+    volumes:
+      - postgres_authentik_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+    profiles:
+      - infrastructure
+      - devtools
+      - all
 
-    # Authentik Server - SSO/Identity Provider
-    authentik-server:
-        image: ghcr.io/goauthentik/server:2025.10.1
-        container_name: authentik-server
-        restart: unless-stopped
-        command: server
-        deploy:
-            resources:
-                limits:
-                    memory: 1G
-                reservations:
-                    memory: 512M
-        depends_on:
-            authentik-db:
-                condition: service_healthy
-        networks:
-            - traefik_net
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "curl -f http://localhost:9000/-/health/live/ || exit 1",
-                ]
-            interval: 30s
-            timeout: 10s
-            retries: 5
-            start_period: 60s
-        environment:
-            AUTHENTIK_POSTGRESQL__HOST: authentik-db
-            AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
-            AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-            AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-            AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key required}
-            TZ: ${TZ}
-        volumes:
-            - authentik_media:/media
-            - authentik_custom_templates:/templates
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.authentik.entrypoints=websecure"
-            - "traefik.http.routers.authentik.tls=true"
-            - "traefik.http.routers.authentik.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.authentik.loadbalancer.server.port=9000"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - infrastructure
-            - devtools
-            - all
+  # Authentik Server - SSO/Identity Provider
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2025.10.1
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:9000/-/health/live/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key required}
+      TZ: ${TZ}
+    volumes:
+      - authentik_media:/media
+      - authentik_custom_templates:/templates
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.authentik.entrypoints=websecure"
+      - "traefik.http.routers.authentik.tls=true"
+      - "traefik.http.routers.authentik.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - infrastructure
+      - devtools
+      - all
 
-    # Authentik Worker - Background tasks
-    authentik-worker:
-        image: ghcr.io/goauthentik/server:2025.10.1
-        container_name: authentik-worker
-        restart: unless-stopped
-        command: worker
-        user: root
-        deploy:
-            resources:
-                limits:
-                    memory: 1G
-                reservations:
-                    memory: 512M
-        depends_on:
-            authentik-db:
-                condition: service_healthy
-        networks:
-            - traefik_net
-        environment:
-            AUTHENTIK_POSTGRESQL__HOST: authentik-db
-            AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
-            AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-            AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-            AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-            # AUTHENTIK_BOOTSTRAP_PASSWORD et AUTHENTIK_BOOTSTRAP_EMAIL retirés
-            # pour éviter la recréation automatique de akadmin
-            TZ: ${TZ}
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-            - authentik_media:/media
-            - authentik_certs:/certs
-            - authentik_custom_templates:/templates
-        profiles:
-            - infrastructure
-            - devtools
-            - all
+  # Authentik Worker - Background tasks
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2025.10.1
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    user: root
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    depends_on:
+      authentik-db:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      # AUTHENTIK_BOOTSTRAP_PASSWORD et AUTHENTIK_BOOTSTRAP_EMAIL retirés
+      # pour éviter la recréation automatique de akadmin
+      TZ: ${TZ}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - authentik_media:/media
+      - authentik_certs:/certs
+      - authentik_custom_templates:/templates
+    profiles:
+      - infrastructure
+      - devtools
+      - all
 
-    # Homepage - Dashboard léger
-    homepage:
-        image: ghcr.io/gethomepage/homepage:latest
-        container_name: homepage
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 256M
-                reservations:
-                    memory: 128M
-        depends_on:
-            authentik-server:
-                condition: service_healthy
-        networks:
-            - traefik_net
-        volumes:
-            - ./homepage-settings/services.yaml:/app/config/services.yaml
-            - ./homepage-settings/settings.yaml:/app/config/settings.yaml
-            - ./homepage-settings/widgets.yaml:/app/config/widgets.yaml
-            - homepage_config:/app/config
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-        environment:
-            - TZ=${TZ}
-            - PUID=${PUID}
-            - PGID=${PGID}
-            - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
-            - HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.homepage.rule=Host(`${DOMAIN_BASE}`)"
-            - "traefik.http.routers.homepage.entrypoints=websecure"
-            - "traefik.http.routers.homepage.tls=true"
-            - "traefik.http.routers.homepage.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.homepage.loadbalancer.server.port=3000"
-            - "traefik.docker.network=traefik_net"
-            # Authentik SSO via Proxy
-            - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
-            - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-            - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
-            - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-        profiles:
-            - dashboard
-            - infrastructure
-            - all
+  # Homepage - Dashboard léger
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    volumes:
+      - ./homepage-settings/services.yaml:/app/config/services.yaml
+      - ./homepage-settings/settings.yaml:/app/config/settings.yaml
+      - ./homepage-settings/widgets.yaml:/app/config/widgets.yaml
+      - homepage_config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
+      - HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`${DOMAIN_BASE}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls=true"
+      - "traefik.http.routers.homepage.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.homepage.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_net"
+      # Authentik SSO via Proxy
+      - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
+      - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+    profiles:
+      - dashboard
+      - infrastructure
+      - all
 
-    # SonarQube - Analyse de code
-    sonarqube:
-        image: sonarqube:community
-        container_name: sonarqube
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 2G
-                reservations:
-                    memory: 1G
-        depends_on:
-            sonarqube-db:
-                condition: service_healthy
-            authentik-server:
-                condition: service_healthy
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "wget -qO- http://localhost:9000/api/system/status || exit 1",
-                ]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 120s
-        environment:
-            - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_POSTGRES_DB:-sonarqube}
-            - SONAR_JDBC_USERNAME=${SONARQUBE_POSTGRES_USER:-sonarqube}
-            - SONAR_JDBC_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
-        volumes:
-            - sonarqube_data:/opt/sonarqube/data
-            - sonarqube_extensions:/opt/sonarqube/extensions
-            - sonarqube_logs:/opt/sonarqube/logs
-        networks:
-            - traefik_net
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN_BASE}`)"
-            - "traefik.http.routers.sonarqube.entrypoints=websecure"
-            - "traefik.http.routers.sonarqube.tls=true"
-            - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
-            - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
-            - "traefik.docker.network=traefik_net"
-        profiles:
-            - devtools
-            - all
+  # SonarQube - Analyse de code
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    depends_on:
+      sonarqube-db:
+        condition: service_healthy
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:9000/api/system/status || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_POSTGRES_DB:-sonarqube}
+      - SONAR_JDBC_USERNAME=${SONARQUBE_POSTGRES_USER:-sonarqube}
+      - SONAR_JDBC_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.sonarqube.entrypoints=websecure"
+      - "traefik.http.routers.sonarqube.tls=true"
+      - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - devtools
+      - all
 
-    # SonarQube PostgreSQL Database
-    sonarqube-db:
-        image: postgres:16-alpine
-        container_name: sonarqube-db
-        restart: unless-stopped
-        deploy:
-            resources:
-                limits:
-                    memory: 512M
-                reservations:
-                    memory: 256M
-        healthcheck:
-            test:
-                [
-                    "CMD-SHELL",
-                    "pg_isready -U ${SONARQUBE_POSTGRES_USER:-sonarqube} -d ${SONARQUBE_POSTGRES_DB:-sonarqube}",
-                ]
-            interval: 30s
-            timeout: 5s
-            retries: 3
-            start_period: 20s
-        environment:
-            - POSTGRES_USER=${SONARQUBE_POSTGRES_USER:-sonarqube}
-            - POSTGRES_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
-            - POSTGRES_DB=${SONARQUBE_POSTGRES_DB:-sonarqube}
-            - TZ=${TZ}
-        volumes:
-            - sonarqube_postgres_data:/var/lib/postgresql/data
-        networks:
-            - traefik_net
-        profiles:
-            - devtools
-            - all
+  # SonarQube PostgreSQL Database
+  sonarqube-db:
+    image: postgres:16-alpine
+    container_name: sonarqube-db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SONARQUBE_POSTGRES_USER:-sonarqube} -d ${SONARQUBE_POSTGRES_DB:-sonarqube}",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    environment:
+      - POSTGRES_USER=${SONARQUBE_POSTGRES_USER:-sonarqube}
+      - POSTGRES_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
+      - POSTGRES_DB=${SONARQUBE_POSTGRES_DB:-sonarqube}
+      - TZ=${TZ}
+    volumes:
+      - sonarqube_postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+    profiles:
+      - devtools
+      - all
 
-    # Glances - Monitoring
-    glances:
-        image: nicolargo/glances:latest
-        container_name: glances
-        restart: unless-stopped
-        pid: host
-        deploy:
-            resources:
-                limits:
-                    memory: 128M
-                reservations:
-                    memory: 64M
-        networks:
-            - traefik_net
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock:ro
-            - /etc/os-release:/etc/os-release:ro
-        environment:
-            - TZ=${TZ}
-            - GLANCES_OPT=-w
-        ports:
-            - "61208:61208"
-        labels:
-            - "traefik.enable=false"
-        profiles:
-            - infrastructure
-            - all
+  # Glances - Monitoring
+  glances:
+    image: nicolargo/glances:latest
+    container_name: glances
+    restart: unless-stopped
+    pid: host
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    networks:
+      - traefik_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+    environment:
+      - TZ=${TZ}
+      - GLANCES_OPT=-w
+    ports:
+      - "61208:61208"
+    labels:
+      - "traefik.enable=false"
+    profiles:
+      - infrastructure
+      - all
 
 networks:
-    traefik_net:
-        name: traefik_net
-        external: true
+  traefik_net:
+    name: traefik_net
+    external: true
 
 volumes:
-    # Traefik
-    traefik_letsencrypt:
-    traefik_config:
+  # Traefik
+  traefik_letsencrypt:
+  traefik_config:
 
-    # Homepage
-    homepage_config:
+  # Homepage
+  homepage_config:
 
-    # Portainer
-    portainer_data:
+  # Portainer
+  portainer_data:
 
-    # Planka
-    favicons:
-    user-avatars:
-    background-images:
-    attachments:
+  # Planka
+  favicons:
+  user-avatars:
+  background-images:
+  attachments:
 
-    # PostgreSQL Planka
-    postgres_planka_data:
+  # PostgreSQL Planka
+  postgres_planka_data:
 
-    # Jellyseerr
-    jellyseerr_config:
+  # Jellyseerr
+  jellyseerr_config:
 
-    # Jellyfin
-    jellyfin_config:
-    jellyfin_cache:
+  # Jellyfin
+  jellyfin_config:
+  jellyfin_cache:
 
-    # Radarr
-    radarr_config:
+  # Radarr
+  radarr_config:
 
-    # Sonarr
-    sonarr_config:
+  # Sonarr
+  sonarr_config:
 
-    # qBittorrent
-    qbittorrent_config:
+  # qBittorrent
+  qbittorrent_config:
 
-    # Prowlarr
-    prowlarr_config:
+  # Prowlarr
+  prowlarr_config:
 
-    # Home Assistant
-    homeassistant_config:
+  # Home Assistant
+  homeassistant_config:
 
-    # Authentik
-    postgres_authentik_data:
-    authentik_media:
-    authentik_certs:
-    authentik_custom_templates:
+  # Authentik
+  postgres_authentik_data:
+  authentik_media:
+  authentik_certs:
+  authentik_custom_templates:
 
-    # OpenProject
-    postgres_openproject_data:
-    openproject_assets:
-    openproject_pgdata:
+  # OpenProject
+  postgres_openproject_data:
+  openproject_assets:
+  openproject_pgdata:
 
-    # SonarQube
-    sonarqube_data:
-    sonarqube_extensions:
-    sonarqube_logs:
-    sonarqube_postgres_data:
+  # SonarQube
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  sonarqube_postgres_data:
