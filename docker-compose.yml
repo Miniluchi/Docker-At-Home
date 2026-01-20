@@ -4,6 +4,7 @@
 # - dashboard: Tableaux de bord (Homepage)
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 # - tools: Outils divers (Planka, planka-db PostgreSQL, Snapdrop)
+# - devtools: Outils de développement (SonarQube, sonarqube-db PostgreSQL)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - monitoring: Surveillance système (Glances)
 # - auth: Authentification SSO (Authentik, authentik-db, authentik-worker)
@@ -772,7 +773,94 @@ services:
             - infrastructure
             - all
 
-    # Glances - Monitoring système (accès local uniquement)
+    # SonarQube - Analyse de code
+    sonarqube:
+        image: sonarqube:lts-community
+        container_name: sonarqube
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 2G
+                reservations:
+                    memory: 1G
+        depends_on:
+            sonarqube-db:
+                condition: service_healthy
+            authentik-server:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:9000/api/system/status || exit 1",
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 120s
+        environment:
+            - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_POSTGRES_DB:-sonarqube}
+            - SONAR_JDBC_USERNAME=${SONARQUBE_POSTGRES_USER:-sonarqube}
+            - SONAR_JDBC_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
+        volumes:
+            - sonarqube_data:/opt/sonarqube/data
+            - sonarqube_extensions:/opt/sonarqube/extensions
+            - sonarqube_logs:/opt/sonarqube/logs
+        networks:
+            - traefik_net
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN_BASE}`)"
+            - "traefik.http.routers.sonarqube.entrypoints=websecure"
+            - "traefik.http.routers.sonarqube.tls=true"
+            - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
+            - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
+            - "traefik.docker.network=traefik_net"
+            # Authentik SSO via Proxy
+            - "traefik.http.routers.sonarqube.middlewares=authentik-sonarqube@docker"
+            - "traefik.http.middlewares.authentik-sonarqube.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+            - "traefik.http.middlewares.authentik-sonarqube.forwardauth.trustForwardHeader=true"
+            - "traefik.http.middlewares.authentik-sonarqube.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+        profiles:
+            - devtools
+            - all
+
+    # SonarQube PostgreSQL Database
+    sonarqube-db:
+        image: postgres:16-alpine
+        container_name: sonarqube-db
+        restart: unless-stopped
+        deploy:
+            resources:
+                limits:
+                    memory: 512M
+                reservations:
+                    memory: 256M
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "pg_isready -U ${SONARQUBE_POSTGRES_USER:-sonarqube} -d ${SONARQUBE_POSTGRES_DB:-sonarqube}",
+                ]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        environment:
+            - POSTGRES_USER=${SONARQUBE_POSTGRES_USER:-sonarqube}
+            - POSTGRES_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
+            - POSTGRES_DB=${SONARQUBE_POSTGRES_DB:-sonarqube}
+            - TZ=${TZ}
+        volumes:
+            - sonarqube_postgres_data:/var/lib/postgresql/data
+        networks:
+            - traefik_net
+        profiles:
+            - devtools
+            - all
+
+    # Glances - Monitoring
     glances:
         image: nicolargo/glances:latest
         container_name: glances
@@ -857,3 +945,9 @@ volumes:
     postgres_openproject_data:
     openproject_assets:
     openproject_pgdata:
+
+    # SonarQube
+    sonarqube_data:
+    sonarqube_extensions:
+    sonarqube_logs:
+    sonarqube_postgres_data:
