@@ -3,7 +3,7 @@
 # - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
 # - dashboard: Tableaux de bord (Homepage)
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
-# - tools: Outils divers (Planka, planka-db PostgreSQL, Snapdrop)
+# - tools: Outils divers (Planka, planka-db PostgreSQL)
 # - devtools: Outils de développement (SonarQube, sonarqube-db PostgreSQL)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - monitoring: Surveillance système (Glances)
@@ -163,33 +163,6 @@ services:
       - WATCHTOWER_NOTIFICATION_EMAIL_DELAY=2
     profiles:
       - infrastructure
-      - all
-
-  # Snapdrop - Partage de fichiers local
-  snapdrop:
-    image: linuxserver/snapdrop:version-f88d46ed
-    container_name: snapdrop
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-        reservations:
-          memory: 32M
-    networks:
-      - traefik_net
-    environment:
-      - TZ=${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.snapdrop.rule=Host(`snapdrop.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.snapdrop.entrypoints=websecure"
-      - "traefik.http.routers.snapdrop.tls=true"
-      - "traefik.http.routers.snapdrop.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.snapdrop.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - tools
       - all
 
   # Jellyseerr - Demandes de médias pour Jellyfin
