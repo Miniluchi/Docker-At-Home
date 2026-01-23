@@ -19,7 +19,7 @@ headerStyle: boxed
 layout:
   Infrastructure:
     style: row
-    columns: 2
+    columns: 3
   Medias:
     style: row
     columns: 3
