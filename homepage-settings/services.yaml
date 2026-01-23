@@ -7,52 +7,80 @@
         href: https://portainer.{{HOMEPAGE_VAR_DOMAIN}}
         icon: portainer.png
         description: Gestion Docker
+        server: my-docker
+        container: portainer
     - Authentik:
         href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
         icon: authentik.png
         description: SSO / Identity Provider
+        server: my-docker
+        container: authentik-server
+    - Traefik:
+        href: https://traefik.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: traefik.png
+        description: Reverse Proxy
+        server: my-docker
+        container: traefik
 
 - Medias:
     - Jellyfin:
         href: https://jellyfin.{{HOMEPAGE_VAR_DOMAIN}}
         icon: jellyfin.png
-        description: Streaming vidéo
+        description: Streaming video
+        server: my-docker
+        container: jellyfin
     - Jellyseerr:
         href: https://jellyseerr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: jellyseerr.png
-        description: Demandes de médias
+        description: Demandes de medias
+        server: my-docker
+        container: jellyseerr
     - Radarr:
         href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: radarr.png
         description: Gestionnaire films
+        server: my-docker
+        container: radarr
     - Sonarr:
         href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: sonarr.png
-        description: Gestionnaire séries
+        description: Gestionnaire series
+        server: my-docker
+        container: sonarr
     - Prowlarr:
         href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: prowlarr.png
         description: Indexeurs
+        server: my-docker
+        container: prowlarr
     - qBittorrent:
-        href: https://qbittorrent.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://qbt.{{HOMEPAGE_VAR_DOMAIN}}
         icon: qbittorrent.png
         description: Client torrent
+        server: my-docker
+        container: qbittorrent
 
 - Automatisation:
     - Home Assistant:
         href: https://home.{{HOMEPAGE_VAR_DOMAIN}}
         icon: home-assistant.png
         description: Domotique
+        server: my-docker
+        container: homeassistant
 
 - Outils:
     - Planka:
         href: https://planka.{{HOMEPAGE_VAR_DOMAIN}}
         icon: planka.png
         description: Kanban / Gestion projets
+        server: my-docker
+        container: planka
     - SonarQube:
         href: https://sonarqube.{{HOMEPAGE_VAR_DOMAIN}}
         icon: sonarqube.png
         description: Analyse de code
+        server: my-docker
+        container: sonarqube
 
 - Metriques:
     - CPU:

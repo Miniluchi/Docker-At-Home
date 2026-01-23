@@ -3,10 +3,11 @@
 # - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
 # - dashboard: Tableaux de bord (Homepage)
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
-# - tools: Outils divers (Planka, planka-db PostgreSQL)
-# - devtools: Outils de développement (SonarQube, sonarqube-db PostgreSQL)
+# - tools: Outils divers (Planka, planka-db)
+# - devtools: Outils de développement (SonarQube, sonarqube-db)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - monitoring: Surveillance système (Glances)
+# - security: Sécurité (CrowdSec agent + bouncer Traefik)
 # - auth: Authentification SSO (Authentik, authentik-db, authentik-worker)
 # - all: Tous les services
 #
@@ -22,12 +23,8 @@ services:
     image: traefik:latest
     container_name: traefik
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    mem_limit: 128m
+    memswap_limit: 128m
     environment:
       - TZ=${TZ}
     healthcheck:
@@ -48,6 +45,10 @@ services:
       - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Logs pour CrowdSec
+      - "--accesslog=true"
+      - "--accesslog.filepath=/var/log/traefik/access.log"
+      - "--accesslog.bufferingsize=100"
     ports:
       - 80:80
       - 443:443
@@ -57,8 +58,14 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - traefik_letsencrypt:/letsencrypt
       - traefik_config:/etc/traefik
+      - traefik_logs:/var/log/traefik
     networks:
       - traefik_net
+    labels:
+      - "traefik.enable=true"
+      # Middleware CrowdSec Bouncer (protection globale)
+      - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.address=http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
+      - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.trustForwardHeader=true"
     profiles:
       - infrastructure
       - all
@@ -68,12 +75,8 @@ services:
     image: nginx:alpine
     container_name: omv-proxy
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 32M
-        reservations:
-          memory: 16M
+    mem_limit: 32m
+    memswap_limit: 32m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -89,8 +92,8 @@ services:
       - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
       - "traefik.http.services.omv.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.omv.middlewares=authentik-omv@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.omv.middlewares=crowdsec-bouncer@docker,authentik-omv@docker"
       - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-omv.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -106,12 +109,8 @@ services:
     image: portainer/portainer-ce:latest
     container_name: portainer
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    mem_limit: 128m
+    memswap_limit: 128m
     networks:
       - traefik_net
     volumes:
@@ -125,7 +124,8 @@ services:
       - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
-      # - "traefik.http.routers.portainer.middlewares=local-vpn-only@file"
+      # CrowdSec protection
+      - "traefik.http.routers.portainer.middlewares=crowdsec-bouncer@docker"
     security_opt:
       - no-new-privileges:true
     environment:
@@ -142,12 +142,8 @@ services:
     image: containrrr/watchtower:latest
     container_name: watchtower
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 32M
-        reservations:
-          memory: 16M
+    mem_limit: 32m
+    memswap_limit: 32m
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --cleanup --interval 86400
@@ -170,12 +166,8 @@ services:
     image: ghcr.io/fallenbagel/jellyseerr:latest
     container_name: jellyseerr
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    mem_limit: 512m
+    memswap_limit: 512m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -206,8 +198,8 @@ services:
       - "traefik.http.routers.jellyseerr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.jellyseerr.middlewares=authentik-jellyseerr@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.jellyseerr.middlewares=crowdsec-bouncer@docker,authentik-jellyseerr@docker"
       - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -220,12 +212,8 @@ services:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 256M
+    mem_limit: 1g
+    memswap_limit: 1g
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
       interval: 30s
@@ -259,6 +247,8 @@ services:
       - "traefik.http.routers.jellyfin.tls.certresolver=letsEncrypt"
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
       - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.jellyfin.middlewares=crowdsec-bouncer@docker"
     profiles:
       - media
       - all
@@ -268,12 +258,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -300,8 +286,8 @@ services:
       - "traefik.http.routers.radarr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.radarr.middlewares=authentik-radarr@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.radarr.middlewares=crowdsec-bouncer@docker,authentik-radarr@docker"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -314,12 +300,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -346,8 +328,8 @@ services:
       - "traefik.http.routers.sonarr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.sonarr.middlewares=authentik-sonarr@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.sonarr.middlewares=crowdsec-bouncer@docker,authentik-sonarr@docker"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -360,12 +342,8 @@ services:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -401,8 +379,8 @@ services:
       - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.qbittorrent.middlewares=authentik-qbittorrent@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@docker,authentik-qbittorrent@docker"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -415,12 +393,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -450,8 +424,8 @@ services:
       - "traefik.http.routers.prowlarr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.prowlarr.middlewares=authentik-prowlarr@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@docker,authentik-prowlarr@docker"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -464,12 +438,8 @@ services:
     image: ghcr.io/plankanban/planka:latest
     container_name: planka
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       planka-db:
         condition: service_healthy
@@ -507,6 +477,8 @@ services:
       - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
       - "traefik.http.services.planka.loadbalancer.server.port=1337"
       - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.planka.middlewares=crowdsec-bouncer@docker"
     profiles:
       - tools
       - all
@@ -516,12 +488,8 @@ services:
     image: postgres:15
     container_name: planka-db
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 30s
@@ -547,12 +515,8 @@ services:
     container_name: homeassistant
     restart: unless-stopped
     network_mode: host
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    mem_limit: 512m
+    memswap_limit: 512m
     healthcheck:
       test:
         [
@@ -578,6 +542,8 @@ services:
       - "traefik.http.routers.homeassistant.tls=true"
       - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
       - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
+      # CrowdSec protection
+      - "traefik.http.routers.homeassistant.middlewares=crowdsec-bouncer@docker"
     profiles:
       - domotique
       - all
@@ -587,12 +553,8 @@ services:
     image: postgres:16-alpine
     container_name: authentik-db
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    mem_limit: 512m
+    memswap_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 30s
@@ -619,12 +581,8 @@ services:
     container_name: authentik-server
     restart: unless-stopped
     command: server
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+    mem_limit: 1g
+    memswap_limit: 1g
     depends_on:
       authentik-db:
         condition: service_healthy
@@ -655,6 +613,8 @@ services:
       - "traefik.http.routers.authentik.tls.certresolver=letsEncrypt"
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.authentik.middlewares=crowdsec-bouncer@docker"
     profiles:
       - infrastructure
       - devtools
@@ -667,12 +627,8 @@ services:
     restart: unless-stopped
     command: worker
     user: root
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
+    mem_limit: 1g
+    memswap_limit: 1g
     depends_on:
       authentik-db:
         condition: service_healthy
@@ -684,9 +640,7 @@ services:
       AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
       AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-      # AUTHENTIK_BOOTSTRAP_PASSWORD et AUTHENTIK_BOOTSTRAP_EMAIL retirés
-      # pour éviter la recréation automatique de akadmin
-      TZ: ${TZ}
+      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - authentik_media:/media
@@ -702,12 +656,8 @@ services:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
+    mem_limit: 256m
+    memswap_limit: 256m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -717,6 +667,7 @@ services:
       - ./homepage-settings/services.yaml:/app/config/services.yaml
       - ./homepage-settings/settings.yaml:/app/config/settings.yaml
       - ./homepage-settings/widgets.yaml:/app/config/widgets.yaml
+      - ./homepage-settings/docker.yaml:/app/config/docker.yaml
       - homepage_config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
@@ -733,8 +684,8 @@ services:
       - "traefik.http.routers.homepage.tls.certresolver=letsEncrypt"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
-      # Authentik SSO via Proxy
-      - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.homepage.middlewares=crowdsec-bouncer@docker,authentik-homepage@docker"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
@@ -748,12 +699,8 @@ services:
     image: sonarqube:community
     container_name: sonarqube
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 1G
+    mem_limit: 2560m
+    memswap_limit: 2560m
     depends_on:
       sonarqube-db:
         condition: service_healthy
@@ -773,6 +720,10 @@ services:
       - SONAR_JDBC_URL=jdbc:postgresql://sonarqube-db:5432/${SONARQUBE_POSTGRES_DB:-sonarqube}
       - SONAR_JDBC_USERNAME=${SONARQUBE_POSTGRES_USER:-sonarqube}
       - SONAR_JDBC_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
+      # Limites mémoire JVM (Xms doit être égal à Xmx pour Elasticsearch)
+      - SONAR_WEB_JAVAOPTS=-Xmx256m -Xms256m
+      - SONAR_CE_JAVAOPTS=-Xmx256m -Xms256m
+      - SONAR_SEARCH_JAVAOPTS=-Xmx512m -Xms512m
     volumes:
       - sonarqube_data:/opt/sonarqube/data
       - sonarqube_extensions:/opt/sonarqube/extensions
@@ -787,6 +738,8 @@ services:
       - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@docker"
     profiles:
       - devtools
       - all
@@ -796,12 +749,8 @@ services:
     image: postgres:16-alpine
     container_name: sonarqube-db
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+    mem_limit: 512m
+    memswap_limit: 512m
     healthcheck:
       test:
         [
@@ -831,17 +780,14 @@ services:
     container_name: glances
     restart: unless-stopped
     pid: host
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
+    mem_limit: 128m
+    memswap_limit: 128m
     networks:
       - traefik_net
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /etc/os-release:/etc/os-release:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     environment:
       - TZ=${TZ}
       - GLANCES_OPT=-w
@@ -850,6 +796,66 @@ services:
     labels:
       - "traefik.enable=false"
     profiles:
+      - infrastructure
+      - all
+
+  # CrowdSec - Security Engine (IPS collaboratif)
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    healthcheck:
+      test: ["CMD", "cscli", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - TZ=${TZ}
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux
+      - GID=${PGID}
+      # Enroll key pour la console CrowdSec
+      - ENROLL_KEY=${CROWDSEC_ENROLL_KEY}
+      - ENROLL_INSTANCE_NAME=${HOSTNAME:-docker-server}
+    volumes:
+      - crowdsec_config:/etc/crowdsec
+      - crowdsec_data:/var/lib/crowdsec/data
+      # Configuration d'acquisition personnalisée
+      - ./crowdsec-acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      # Logs Traefik à analyser
+      - traefik_logs:/var/log/traefik:ro
+      # Logs SSH (host)
+      - /var/log/auth.log:/var/log/auth.log:ro
+      # Docker socket pour lire les logs des conteneurs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik_net
+    profiles:
+      - security
+      - infrastructure
+      - all
+
+  # CrowdSec Bouncer Traefik - Bloque les IP malveillantes
+  crowdsec-bouncer-traefik:
+    image: fbonalair/traefik-crowdsec-bouncer:latest
+    container_name: crowdsec-bouncer-traefik
+    restart: unless-stopped
+    mem_limit: 64m
+    memswap_limit: 64m
+    depends_on:
+      crowdsec:
+        condition: service_healthy
+    environment:
+      - TZ=${TZ}
+      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY:?crowdsec bouncer api key required}
+      - CROWDSEC_AGENT_HOST=crowdsec:8080
+      - GIN_MODE=release
+    networks:
+      - traefik_net
+    profiles:
+      - security
       - infrastructure
       - all
 
@@ -862,6 +868,7 @@ volumes:
   # Traefik
   traefik_letsencrypt:
   traefik_config:
+  traefik_logs:
 
   # Homepage
   homepage_config:
@@ -916,3 +923,7 @@ volumes:
   sonarqube_extensions:
   sonarqube_logs:
   sonarqube_postgres_data:
+
+  # CrowdSec
+  crowdsec_config:
+  crowdsec_data:
