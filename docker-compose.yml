@@ -1,14 +1,12 @@
 # Docker Compose avec profils
 # Profils disponibles:
-# - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower)
+# - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Dockhand, Glances, CrowdSec, Authentik)
 # - dashboard: Tableaux de bord (Homepage)
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 # - tools: Outils divers (Planka, planka-db)
 # - devtools: Outils de développement (SonarQube, sonarqube-db)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
-# - monitoring: Surveillance système (Glances)
 # - security: Sécurité (CrowdSec agent + bouncer Traefik)
-# - auth: Authentification SSO (Authentik, authentik-db, authentik-worker)
 # - all: Tous les services
 #
 # Utilisation:
@@ -797,6 +795,38 @@ services:
       - infrastructure
       - all
 
+  # Dockhand - Docker Management UI
+  dockhand:
+    image: fnsys/dockhand:latest
+    container_name: dockhand
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    networks:
+      - traefik_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dockhand_data:/app/data
+    environment:
+      - TZ=${TZ}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.dockhand.rule=Host(`dock.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.dockhand.entrypoints=websecure"
+      - "traefik.http.routers.dockhand.tls=true"
+      - "traefik.http.routers.dockhand.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.dockhand.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
+    security_opt:
+      - no-new-privileges:true
+    profiles:
+      - infrastructure
+      - all
+
   # CrowdSec - Security Engine (IPS collaboratif)
   crowdsec:
     image: crowdsecurity/crowdsec:latest
@@ -925,3 +955,6 @@ volumes:
   # CrowdSec
   crowdsec_config:
   crowdsec_data:
+
+  # Dockhand
+  dockhand_data:
