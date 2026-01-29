@@ -3,13 +3,13 @@
 # Documentation: https://gethomepage.dev/configs/widgets/
 
 - resources:
-      cpu: true
-      memory: true
-      disk: /
+    cpu: true
+    memory: true
+    disk: /
 
 - datetime:
-      text_size: xl
-      format:
-          dateStyle: long
-          timeStyle: short
-      locale: fr-FR
+    text_size: xl
+    format:
+      dateStyle: long
+      timeStyle: short
+    locale: fr-FR
