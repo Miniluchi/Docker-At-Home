@@ -136,32 +136,9 @@ services:
       - all
 
   # Watchtower - Auto-updates
-  watchtower:
-    image: containrrr/watchtower:latest
-    container_name: watchtower
-    restart: unless-stopped
-    mem_limit: 32m
-    memswap_limit: 32m
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --cleanup --interval 86400
-    environment:
-      - TZ=${TZ}
-      - WATCHTOWER_NOTIFICATIONS=email
-      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=${WATCHTOWER_NOTIFICATION_EMAIL_FROM}
-      - WATCHTOWER_NOTIFICATION_EMAIL_TO=${WATCHTOWER_NOTIFICATION_EMAIL_TO}
-      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER}
-      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT}
-      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER}
-      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=${WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD}
-      - WATCHTOWER_NOTIFICATION_EMAIL_DELAY=2
-    profiles:
-      - infrastructure
-      - all
-
   # Jellyseerr - Demandes de médias pour Jellyfin
   jellyseerr:
-    image: ghcr.io/fallenbagel/jellyseerr:latest
+    image: fallenbagel/jellyseerr:preview-OIDC
     container_name: jellyseerr
     restart: unless-stopped
     mem_limit: 512m
@@ -184,6 +161,7 @@ services:
       - PGID=${PGID}
       - LOG_LEVEL=info
       - TZ=${TZ}
+      - TRUST_PROXY=1
     volumes:
       - jellyseerr_config:/app/config
     networks:
@@ -196,11 +174,8 @@ services:
       - "traefik.http.routers.jellyseerr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.jellyseerr.middlewares=crowdsec-bouncer@docker,authentik-jellyseerr@docker"
-      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-jellyseerr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
+      # CrowdSec only (OIDC géré directement par Jellyseerr)
+      - "traefik.http.routers.jellyseerr.middlewares=crowdsec-bouncer@docker"
     profiles:
       - media
       - all
@@ -484,6 +459,86 @@ services:
       - tools
       - all
 
+  # RSSHub - RSS Feed Generator
+  rsshub:
+    image: diygod/rsshub:latest
+    container_name: rsshub
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:1200/'', r => process.exit(r.statusCode === 200 ? 0 : 1)).on(''error'', () => process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - TZ=${TZ}
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rsshub.rule=Host(`rsshub.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.rsshub.entrypoints=websecure"
+      - "traefik.http.routers.rsshub.tls=true"
+      - "traefik.http.routers.rsshub.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
+      - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.rsshub.middlewares=crowdsec-bouncer@docker"
+    profiles:
+      - tools
+      - all
+
+  # FreshRSS - RSS Feed Reader
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: freshrss
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f apache2 > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - TZ=${TZ}
+      - CRON_MIN=1,31
+      # OIDC Configuration avec Authentik
+      - OIDC_ENABLED=1
+      - OIDC_PROVIDER_METADATA_URL=https://auth.${DOMAIN_BASE}/application/o/freshrss/.well-known/openid-configuration
+      - OIDC_CLIENT_ID=${FRESHRSS_OIDC_CLIENT_ID}
+      - OIDC_CLIENT_SECRET=${FRESHRSS_OIDC_CLIENT_SECRET}
+      - OIDC_X_FORWARDED_HEADERS=X-Forwarded-Port X-Forwarded-Proto X-Forwarded-Host
+      - OIDC_SCOPES=openid email profile
+    volumes:
+      - freshrss_data:/var/www/FreshRSS/data
+      - freshrss_extensions:/var/www/FreshRSS/extensions
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.freshrss.rule=Host(`rss.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.freshrss.entrypoints=websecure"
+      - "traefik.http.routers.freshrss.tls=true"
+      - "traefik.http.routers.freshrss.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_net"
+      # CrowdSec protection
+      - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@docker"
+    profiles:
+      - tools
+      - all
+
   # PostgreSQL Planka - Base de données dédiée
   planka-db:
     image: postgres:15
@@ -534,6 +589,9 @@ services:
       - /run/dbus:/run/dbus:ro
     environment:
       - TZ=${TZ}
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
     devices:
       - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
     labels:
@@ -720,8 +778,8 @@ services:
       - SONAR_JDBC_USERNAME=${SONARQUBE_POSTGRES_USER:-sonarqube}
       - SONAR_JDBC_PASSWORD=${SONARQUBE_POSTGRES_PASSWORD:?sonarqube database password required}
       # Limites mémoire JVM (Xms doit être égal à Xmx pour Elasticsearch)
-      - SONAR_WEB_JAVAOPTS=-Xmx256m -Xms256m
-      - SONAR_CE_JAVAOPTS=-Xmx256m -Xms256m
+      - SONAR_WEB_JAVAOPTS=-Xmx512m -Xms512m
+      - SONAR_CE_JAVAOPTS=-Xmx512m -Xms512m
       - SONAR_SEARCH_JAVAOPTS=-Xmx512m -Xms512m
     volumes:
       - sonarqube_data:/opt/sonarqube/data
@@ -794,38 +852,6 @@ services:
       - "61208:61208"
     labels:
       - "traefik.enable=false"
-    profiles:
-      - infrastructure
-      - all
-
-  # Dockhand - Docker Management UI
-  dockhand:
-    image: fnsys/dockhand:latest
-    container_name: dockhand
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - dockhand_data:/app/data
-    environment:
-      - TZ=${TZ}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik_net"
-      - "traefik.http.routers.dockhand.rule=Host(`dock.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.dockhand.entrypoints=websecure"
-      - "traefik.http.routers.dockhand.tls=true"
-      - "traefik.http.routers.dockhand.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.dockhand.middlewares=crowdsec-bouncer@docker"
-      - "traefik.http.services.dockhand.loadbalancer.server.port=3000"
-    security_opt:
-      - no-new-privileges:true
     profiles:
       - infrastructure
       - all
@@ -961,3 +987,7 @@ volumes:
 
   # Dockhand
   dockhand_data:
+
+  # FreshRSS
+  freshrss_data:
+  freshrss_extensions:
