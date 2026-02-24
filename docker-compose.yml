@@ -94,7 +94,6 @@ services:
       - "traefik.http.routers.omv.middlewares=crowdsec-bouncer@docker,authentik-omv@docker"
       - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-omv.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     environment:
       - TZ=${TZ}
     profiles:
@@ -266,7 +265,6 @@ services:
       - "traefik.http.routers.radarr.middlewares=crowdsec-bouncer@docker,authentik-radarr@docker"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-radarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     profiles:
       - media
       - all
@@ -308,7 +306,6 @@ services:
       - "traefik.http.routers.sonarr.middlewares=crowdsec-bouncer@docker,authentik-sonarr@docker"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-sonarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     profiles:
       - media
       - all
@@ -359,7 +356,6 @@ services:
       - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@docker,authentik-qbittorrent@docker"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     profiles:
       - media
       - all
@@ -404,7 +400,6 @@ services:
       - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@docker,authentik-prowlarr@docker"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     profiles:
       - media
       - all
@@ -745,7 +740,6 @@ services:
       - "traefik.http.routers.homepage.middlewares=crowdsec-bouncer@docker,authentik-homepage@docker"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
-      - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
     profiles:
       - dashboard
       - infrastructure
@@ -848,10 +842,17 @@ services:
     environment:
       - TZ=${TZ}
       - GLANCES_OPT=-w
-    ports:
-      - "61208:61208"
     labels:
-      - "traefik.enable=false"
+      - "traefik.enable=true"
+      - "traefik.http.routers.glances.rule=Host(`glances.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.glances.entrypoints=websecure"
+      - "traefik.http.routers.glances.tls=true"
+      - "traefik.http.routers.glances.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.glances.loadbalancer.server.port=61208"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.glances.middlewares=crowdsec-bouncer@docker,authentik-glances@docker"
+      - "traefik.http.middlewares.authentik-glances.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-glances.forwardauth.trustForwardHeader=true"
     profiles:
       - infrastructure
       - all
