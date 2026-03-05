@@ -15,12 +15,18 @@
         description: SSO / Identity Provider
         server: my-docker
         container: authentik-server
-    - Traefik:
-        href: https://traefik.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: traefik.png
-        description: Reverse Proxy
+    - OpenMediaVault:
+        href: https://omv.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: openmediavault.png
+        description: NAS / Stockage
         server: my-docker
-        container: traefik
+        container: omv-proxy
+    - Glances:
+        href: https://glances.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: glances.png
+        description: Monitoring systeme
+        server: my-docker
+        container: glances
 
 - Medias:
     - Jellyfin:
@@ -81,6 +87,18 @@
         description: Analyse de code
         server: my-docker
         container: sonarqube
+    - FreshRSS:
+        href: https://rss.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: freshrss.png
+        description: Lecteur RSS
+        server: my-docker
+        container: freshrss
+    - RSSHub:
+        href: https://rsshub.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: rsshub.png
+        description: Generateur de flux RSS
+        server: my-docker
+        container: rsshub
 
 - Metriques:
     - CPU:
