@@ -19,7 +19,7 @@ headerStyle: boxed
 layout:
   Infrastructure:
     style: row
-    columns: 3
+    columns: 2
   Medias:
     style: row
     columns: 3
@@ -28,7 +28,7 @@ layout:
     columns: 1
   Outils:
     style: row
-    columns: 2
+    columns: 4
   Metriques:
     style: row
     columns: 2
