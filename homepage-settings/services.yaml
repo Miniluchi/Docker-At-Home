@@ -2,6 +2,56 @@
 # Homepage Services Configuration
 # Documentation: https://gethomepage.dev/configs/services/
 
+- Demandes:
+    - Radarr:
+        href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: radarr.png
+        description: Gestionnaire films
+        server: my-docker
+        container: radarr
+        widget:
+          type: radarr
+          url: http://radarr:7878
+          key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
+          fields: ["movies", "wanted", "queued"]
+    - Sonarr:
+        href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: sonarr.png
+        description: Gestionnaire series
+        server: my-docker
+        container: sonarr
+        widget:
+          type: sonarr
+          url: http://sonarr:8989
+          key: "{{HOMEPAGE_VAR_SONARR_API_KEY}}"
+          fields: ["series", "wanted", "queued"]
+
+- Medias:
+    - Jellyfin:
+        href: https://jellyfin.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: jellyfin.png
+        description: Streaming video
+        server: my-docker
+        container: jellyfin
+    - Jellyseerr:
+        href: https://jellyseerr.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: jellyseerr.png
+        description: Demandes de medias
+        server: my-docker
+        container: jellyseerr
+    - Prowlarr:
+        href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: prowlarr.png
+        description: Indexeurs
+        server: my-docker
+        container: prowlarr
+    - qBittorrent:
+        href: https://qbt.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: qbittorrent.png
+        description: Client torrent
+        server: my-docker
+        container: qbittorrent
+
 - Infrastructure:
     - Portainer:
         href: https://portainer.{{HOMEPAGE_VAR_DOMAIN}}
@@ -27,44 +77,6 @@
         description: Monitoring systeme
         server: my-docker
         container: glances
-
-- Medias:
-    - Jellyfin:
-        href: https://jellyfin.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: jellyfin.png
-        description: Streaming video
-        server: my-docker
-        container: jellyfin
-    - Jellyseerr:
-        href: https://jellyseerr.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: jellyseerr.png
-        description: Demandes de medias
-        server: my-docker
-        container: jellyseerr
-    - Radarr:
-        href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: radarr.png
-        description: Gestionnaire films
-        server: my-docker
-        container: radarr
-    - Sonarr:
-        href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: sonarr.png
-        description: Gestionnaire series
-        server: my-docker
-        container: sonarr
-    - Prowlarr:
-        href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: prowlarr.png
-        description: Indexeurs
-        server: my-docker
-        container: prowlarr
-    - qBittorrent:
-        href: https://qbt.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: qbittorrent.png
-        description: Client torrent
-        server: my-docker
-        container: qbittorrent
 
 - Automatisation:
     - Home Assistant:
