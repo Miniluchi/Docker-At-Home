@@ -3,7 +3,6 @@
 # - infrastructure: Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Dockhand, Glances, CrowdSec, Authentik)
 # - dashboard: Tableaux de bord (Homepage)
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
-# - tools: Outils divers (Planka, planka-db)
 # - devtools: Outils de développement (SonarQube, sonarqube-db)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - security: Sécurité (CrowdSec agent + bouncer Traefik)
@@ -405,56 +404,6 @@ services:
       - media
       - all
 
-  # Planka
-  planka:
-    image: ghcr.io/plankanban/planka:latest
-    container_name: planka
-    restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
-    depends_on:
-      planka-db:
-        condition: service_healthy
-      authentik-server:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    environment:
-      - TRUST_PROXY=1
-      - DATABASE_URL=postgresql://${PLANKA_POSTGRES_USER}:${PLANKA_POSTGRES_PASSWORD}@planka-db:5432/${PLANKA_POSTGRES_DB}
-      - SECRET_KEY=${PLANKA_SECRET_KEY}
-      - BASE_URL=https://planka.${DOMAIN_BASE}
-      - TZ=${TZ}
-      # OIDC Configuration avec Authentik
-      - OIDC_ISSUER=https://auth.${DOMAIN_BASE}/application/o/planka/
-      - OIDC_CLIENT_ID=${PLANKA_OIDC_CLIENT_ID}
-      - OIDC_CLIENT_SECRET=${PLANKA_OIDC_CLIENT_SECRET}
-      - OIDC_SCOPES=openid profile email
-      - OIDC_ADMIN_ROLES=${PLANKA_OIDC_ADMIN_ROLES}
-      - OIDC_EMAIL_ATTRIBUTE=email
-      - OIDC_NAME_ATTRIBUTE=name
-      - OIDC_USERNAME_ATTRIBUTE=preferred_username
-      - OIDC_ROLES_ATTRIBUTE=groups
-      - OIDC_ENFORCED=true
-    volumes:
-      - favicons:/app/public/favicons
-      - user-avatars:/app/public/user-avatars
-      - background-images:/app/public/background-images
-      - attachments:/app/private/attachments
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.planka.rule=Host(`planka.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.planka.entrypoints=websecure"
-      - "traefik.http.routers.planka.tls=true"
-      - "traefik.http.routers.planka.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.planka.loadbalancer.server.port=1337"
-      - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.planka.middlewares=crowdsec-bouncer@docker"
-    profiles:
-      - tools
-      - all
-
   # RSSHub - RSS Feed Generator
   rsshub:
     image: diygod/rsshub:latest
@@ -559,32 +508,6 @@ services:
       - traefik_net
     profiles:
       - media
-      - all
-
-  # PostgreSQL Planka - Base de données dédiée
-  planka-db:
-    image: postgres:15
-    container_name: planka-db
-    restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    environment:
-      POSTGRES_USER: ${PLANKA_POSTGRES_USER}
-      POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${PLANKA_POSTGRES_DB}
-      TZ: ${TZ}
-    volumes:
-      - postgres_planka_data:/var/lib/postgresql/data
-    networks:
-      - traefik_net
-    profiles:
-      - tools
       - all
 
   # Home Assistant
@@ -755,6 +678,8 @@ services:
       - TZ=${TZ}
       - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
       - HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
+      - HOMEPAGE_VAR_RADARR_API_KEY=${RADARR_API_KEY}
+      - HOMEPAGE_VAR_SONARR_API_KEY=${SONARR_API_KEY}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.homepage.rule=Host(`${DOMAIN_BASE}`)"
@@ -960,15 +885,6 @@ volumes:
 
   # Portainer
   portainer_data:
-
-  # Planka
-  favicons:
-  user-avatars:
-  background-images:
-  attachments:
-
-  # PostgreSQL Planka
-  postgres_planka_data:
 
   # Jellyseerr
   jellyseerr_config:
