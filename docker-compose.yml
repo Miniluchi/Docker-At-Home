@@ -6,6 +6,7 @@
 # - devtools: Outils de développement (SonarQube, sonarqube-db)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
 # - security: Sécurité (CrowdSec agent + bouncer Traefik)
+# - tools: Outils (RSSHub, FreshRSS, Keeper.sh)
 # - all: Tous les services
 #
 # Utilisation:
@@ -136,30 +137,25 @@ services:
   # Watchtower - Auto-updates
   # Jellyseerr - Demandes de médias pour Jellyfin
   jellyseerr:
-    image: fallenbagel/jellyseerr:preview-OIDC
+    image: ghcr.io/seerr-team/seerr:latest
     container_name: jellyseerr
+    init: true
     restart: "on-failure:2"
     mem_limit: 512m
     memswap_limit: 512m
-    depends_on:
-      authentik-server:
-        condition: service_healthy
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://127.0.0.1:5055/api/v1/status || exit 1",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:5055/api/v1/settings/public || exit 1",
         ]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 3s
       retries: 3
-      start_period: 30s
+      start_period: 20s
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - LOG_LEVEL=info
       - TZ=${TZ}
-      - TRUST_PROXY=1
     volumes:
       - jellyseerr_config:/app/config
     networks:
@@ -180,7 +176,7 @@ services:
 
   # Jellyfin - Media Server
   jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
+    image: jellyfin/jellyfin:latest
     container_name: jellyfin
     restart: on-failure
     mem_limit: 2g
@@ -195,14 +191,13 @@ services:
       retries: 3
       start_period: 60s
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
       - TZ=${TZ}
       - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN_BASE}
+    user: "${PUID}:${PGID}"
     volumes:
       - jellyfin_config:/config
       - ${MEDIA_PATH}:/data
-      - jellyfin_cache:/config/cache # Cache séparé pour meilleures perfs
+      - jellyfin_cache:/cache
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128 # GPU render device (principal)
       - /dev/dri/card0:/dev/dri/card0 # GPU card 0
@@ -480,6 +475,97 @@ services:
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
       - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@docker"
+    profiles:
+      - tools
+      - all
+
+  # Keeper.sh - Synchronisation de calendriers (PostgreSQL dédié)
+  keeper-db:
+    image: postgres:16-alpine
+    container_name: keeper-db
+    restart: "on-failure:2"
+    mem_limit: 256m
+    memswap_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      POSTGRES_USER: ${KEEPER_POSTGRES_USER:-keeper}
+      POSTGRES_PASSWORD: ${KEEPER_POSTGRES_PASSWORD:?keeper database password required}
+      POSTGRES_DB: ${KEEPER_POSTGRES_DB:-keeper}
+      TZ: ${TZ}
+    volumes:
+      - keeper_postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+    profiles:
+      - tools
+      - all
+
+  # Keeper.sh - Redis dédié (queue BullMQ)
+  keeper-redis:
+    image: redis:7-alpine
+    container_name: keeper-redis
+    restart: "on-failure:2"
+    mem_limit: 64m
+    memswap_limit: 64m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - traefik_net
+    profiles:
+      - tools
+      - all
+
+  # Keeper.sh - Synchronisation de calendriers
+  keeper:
+    image: ghcr.io/ridafkih/keeper-services:latest
+    container_name: keeper
+    restart: "on-failure:2"
+    mem_limit: 1g
+    memswap_limit: 1g
+    depends_on:
+      keeper-db:
+        condition: service_healthy
+      keeper-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    environment:
+      - TZ=${TZ}
+      - DATABASE_URL=postgres://${KEEPER_POSTGRES_USER:-keeper}:${KEEPER_POSTGRES_PASSWORD}@keeper-db:5432/${KEEPER_POSTGRES_DB:-keeper}
+      - REDIS_URL=redis://keeper-redis:6379
+      - BETTER_AUTH_SECRET=${KEEPER_AUTH_SECRET:?keeper auth secret required}
+      - BETTER_AUTH_URL=https://keeper.${DOMAIN_BASE}
+      - ENCRYPTION_KEY=${KEEPER_ENCRYPTION_KEY:?keeper encryption key required}
+      - TRUSTED_ORIGINS=https://keeper.${DOMAIN_BASE}
+      - WORKER_JOB_QUEUE_ENABLED=true
+      - BLOCK_PRIVATE_RESOLUTION=false
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keeper.rule=Host(`keeper.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.keeper.entrypoints=websecure"
+      - "traefik.http.routers.keeper.tls=true"
+      - "traefik.http.routers.keeper.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.keeper.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_net"
+      # CrowdSec + Authentik SSO via Proxy (remplacer par OIDC natif quand configuré)
+      - "traefik.http.routers.keeper.middlewares=crowdsec-bouncer@docker,authentik-keeper@docker"
+      - "traefik.http.middlewares.authentik-keeper.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-keeper.forwardauth.trustForwardHeader=true"
     profiles:
       - tools
       - all
@@ -935,3 +1021,6 @@ volumes:
   # FreshRSS
   freshrss_data:
   freshrss_extensions:
+
+  # Keeper.sh
+  keeper_postgres_data:
