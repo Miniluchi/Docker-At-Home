@@ -5,7 +5,7 @@
 # - media: Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
 # - devtools: Outils de développement (SonarQube, sonarqube-db)
 # - domotique: Services domotique (Home Assistant avec support Zigbee)
-# - security: Sécurité (CrowdSec agent + bouncer Traefik)
+# - security: Sécurité (CrowdSec agent + plugin Traefik)
 # - tools: Outils (RSSHub, FreshRSS, Keeper.sh)
 # - all: Tous les services
 #
@@ -25,6 +25,7 @@ services:
     memswap_limit: 128m
     environment:
       - TZ=${TZ}
+      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -47,6 +48,12 @@ services:
       - "--accesslog=true"
       - "--accesslog.filepath=/var/log/traefik/access.log"
       - "--accesslog.bufferingsize=100"
+      # Plugin CrowdSec Bouncer
+      - "--experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+      - "--experimental.plugins.bouncer.version=v1.5.1"
+      # Fichier de configuration dynamique (middleware plugin)
+      - "--providers.file.filename=/etc/traefik/dynamic.yml"
+      - "--providers.file.watch=true"
     ports:
       - 80:80
       - 443:443
@@ -57,13 +64,12 @@ services:
       - traefik_letsencrypt:/letsencrypt
       - traefik_config:/etc/traefik
       - traefik_logs:/var/log/traefik
+      - ./traefik-dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      # Middleware CrowdSec Bouncer (protection globale)
-      - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.address=http://crowdsec-bouncer-traefik:8080/api/v1/forwardAuth"
-      - "traefik.http.middlewares.crowdsec-bouncer.forwardauth.trustForwardHeader=true"
+      # Middleware crowdsec-bouncer défini dans traefik-dynamic.yml (file provider)
     profiles:
       - infrastructure
       - all
@@ -91,7 +97,7 @@ services:
       - "traefik.http.services.omv.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.omv.middlewares=crowdsec-bouncer@docker,authentik-omv@docker"
+      - "traefik.http.routers.omv.middlewares=crowdsec-bouncer@file,authentik-omv@docker"
       - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
     environment:
@@ -122,7 +128,7 @@ services:
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.portainer.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.portainer.middlewares=crowdsec-bouncer@file"
     security_opt:
       - no-new-privileges:true
     environment:
@@ -171,7 +177,7 @@ services:
       - "traefik.http.services.jellyseerr.loadbalancer.server.port=5055"
       - "traefik.docker.network=traefik_net"
       # CrowdSec only (OIDC géré directement par Jellyseerr)
-      - "traefik.http.routers.jellyseerr.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.jellyseerr.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -219,7 +225,7 @@ services:
       - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.jellyfin.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.jellyfin.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -258,7 +264,7 @@ services:
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.radarr.middlewares=crowdsec-bouncer@docker,authentik-radarr@docker"
+      - "traefik.http.routers.radarr.middlewares=crowdsec-bouncer@file,authentik-radarr@docker"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
     profiles:
@@ -299,7 +305,7 @@ services:
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.sonarr.middlewares=crowdsec-bouncer@docker,authentik-sonarr@docker"
+      - "traefik.http.routers.sonarr.middlewares=crowdsec-bouncer@file,authentik-sonarr@docker"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
     profiles:
@@ -341,7 +347,7 @@ services:
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@docker,authentik-qbittorrent@docker"
+      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@file,authentik-qbittorrent@docker"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
     profiles:
@@ -414,7 +420,7 @@ services:
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@docker,authentik-prowlarr@docker"
+      - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@file,authentik-prowlarr@docker"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
     profiles:
@@ -451,7 +457,7 @@ services:
       - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.rsshub.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.rsshub.middlewares=crowdsec-bouncer@file"
     profiles:
       - tools
       - all
@@ -496,7 +502,7 @@ services:
       - "traefik.http.services.freshrss.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@file"
     profiles:
       - tools
       - all
@@ -585,7 +591,7 @@ services:
       - "traefik.http.services.keeper.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy (remplacer par OIDC natif quand configuré)
-      - "traefik.http.routers.keeper.middlewares=crowdsec-bouncer@docker,authentik-keeper@docker"
+      - "traefik.http.routers.keeper.middlewares=crowdsec-bouncer@file,authentik-keeper@docker"
       - "traefik.http.middlewares.authentik-keeper.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-keeper.forwardauth.trustForwardHeader=true"
     profiles:
@@ -655,7 +661,7 @@ services:
       - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
       - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
       # CrowdSec protection
-      - "traefik.http.routers.homeassistant.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.homeassistant.middlewares=crowdsec-bouncer@file"
     profiles:
       - domotique
       - all
@@ -726,12 +732,11 @@ services:
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.authentik.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.authentik.middlewares=crowdsec-bouncer@file"
     profiles:
       - infrastructure
       - devtools
       - all
-
 
   # Homepage - Dashboard léger
   homepage:
@@ -767,7 +772,7 @@ services:
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.homepage.middlewares=crowdsec-bouncer@docker,authentik-homepage@docker"
+      - "traefik.http.routers.homepage.middlewares=crowdsec-bouncer@file,authentik-homepage@docker"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
     profiles:
@@ -820,7 +825,7 @@ services:
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
-      - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@docker"
+      - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@file"
     profiles:
       - devtools
       - all
@@ -880,7 +885,7 @@ services:
       - "traefik.http.routers.glances.tls.certresolver=letsEncrypt"
       - "traefik.http.services.glances.loadbalancer.server.port=61208"
       - "traefik.docker.network=traefik_net"
-      - "traefik.http.routers.glances.middlewares=crowdsec-bouncer@docker,authentik-glances@docker"
+      - "traefik.http.routers.glances.middlewares=crowdsec-bouncer@file,authentik-glances@docker"
       - "traefik.http.middlewares.authentik-glances.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-glances.forwardauth.trustForwardHeader=true"
     profiles:
@@ -902,7 +907,7 @@ services:
       start_period: 30s
     environment:
       - TZ=${TZ}
-      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
       - GID=${PGID}
       # Enroll key pour la console CrowdSec
       - ENROLL_KEY=${CROWDSEC_ENROLL_KEY}
@@ -918,28 +923,6 @@ services:
       - /var/log/auth.log:/var/log/auth.log:ro
       # Docker socket pour lire les logs des conteneurs
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - traefik_net
-    profiles:
-      - security
-      - infrastructure
-      - all
-
-  # CrowdSec Bouncer Traefik - Bloque les IP malveillantes
-  crowdsec-bouncer-traefik:
-    image: fbonalair/traefik-crowdsec-bouncer:latest
-    container_name: crowdsec-bouncer-traefik
-    restart: unless-stopped
-    mem_limit: 64m
-    memswap_limit: 64m
-    depends_on:
-      crowdsec:
-        condition: service_healthy
-    environment:
-      - TZ=${TZ}
-      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY:?crowdsec bouncer api key required}
-      - CROWDSEC_AGENT_HOST=crowdsec:8080
-      - GIN_MODE=release
     networks:
       - traefik_net
     profiles:
