@@ -907,7 +907,7 @@ services:
       start_period: 30s
     environment:
       - TZ=${TZ}
-      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux
       - GID=${PGID}
       # Enroll key pour la console CrowdSec
       - ENROLL_KEY=${CROWDSEC_ENROLL_KEY}
