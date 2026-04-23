@@ -128,8 +128,10 @@ services:
     environment:
       - TZ=${TZ}
     depends_on:
-      - traefik
-      - authentik-server
+      traefik:
+        condition: service_healthy
+      authentik-server:
+        condition: service_healthy
     profiles:
       - infrastructure
       - all
@@ -178,7 +180,7 @@ services:
   jellyfin:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
-    restart: on-failure
+    restart: "on-failure:2"
     mem_limit: 2g
     memswap_limit: 2g
     depends_on:
@@ -730,36 +732,6 @@ services:
       - devtools
       - all
 
-  # Authentik Worker - Background tasks
-  authentik-worker:
-    image: ghcr.io/goauthentik/server:2025.10.1
-    container_name: authentik-worker
-    restart: unless-stopped
-    command: worker
-    user: root
-    mem_limit: 1g
-    memswap_limit: 1g
-    depends_on:
-      authentik-db:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    environment:
-      AUTHENTIK_POSTGRESQL__HOST: authentik-db
-      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
-      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - authentik_media:/media
-      - authentik_certs:/certs
-      - authentik_custom_templates:/templates
-    profiles:
-      - infrastructure
-      - devtools
-      - all
 
   # Homepage - Dashboard léger
   homepage:
@@ -1017,13 +989,7 @@ volumes:
   # Authentik
   postgres_authentik_data:
   authentik_media:
-  authentik_certs:
   authentik_custom_templates:
-
-  # OpenProject
-  postgres_openproject_data:
-  openproject_assets:
-  openproject_pgdata:
 
   # SonarQube
   sonarqube_data:
@@ -1034,9 +1000,6 @@ volumes:
   # CrowdSec
   crowdsec_config:
   crowdsec_data:
-
-  # Dockhand
-  dockhand_data:
 
   # FreshRSS
   freshrss_data:
