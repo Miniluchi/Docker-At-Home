@@ -304,6 +304,48 @@ services:
       - media
       - all
 
+  # Gluetun - VPN Gateway (ProtonVPN WireGuard)
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: "on-failure:2"
+    mem_limit: 256m
+    memswap_limit: 256m
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TZ=${TZ}
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${GLUETUN_WG_PRIVATE_KEY}
+      - SERVER_COUNTRIES=Netherlands
+      - PORT_FORWARD_ONLY=on
+      - VPN_PORT_FORWARDING=on
+      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
+      - WIREGUARD_IMPLEMENTATION=userspace
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.tls=true"
+      - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
+      - "traefik.docker.network=traefik_net"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@docker,authentik-qbittorrent@docker"
+      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
+    profiles:
+      - media
+      - all
+
   # qBittorrent - Client Torrent
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -311,6 +353,9 @@ services:
     restart: "on-failure:2"
     mem_limit: 256m
     memswap_limit: 256m
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -325,31 +370,6 @@ services:
     volumes:
       - qbittorrent_config:/config
       - ${MEDIA_PATH}:/data
-    networks:
-      - traefik_net
-    extra_hosts:
-      - "www.sharewood.tv:89.249.49.99"
-      - "sharewood.tv:89.249.49.99"
-      - "tracker.sharewood.tv:89.249.49.99"
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
-      - 9.9.9.9
-    ports:
-      - "6881:6881"
-      - "6881:6881/udp"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
-      - "traefik.http.routers.qbittorrent.tls=true"
-      - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
-      - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@docker,authentik-qbittorrent@docker"
-      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
     profiles:
       - media
       - all
