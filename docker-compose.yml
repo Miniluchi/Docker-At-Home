@@ -382,6 +382,30 @@ services:
       - media
       - all
 
+  # Watchdog: redémarre qBittorrent quand Gluetun redémarre (resync namespace réseau)
+  gluetun-watchdog:
+    image: docker:cli
+    container_name: gluetun-watchdog
+    restart: unless-stopped
+    mem_limit: 32m
+    memswap_limit: 32m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      [
+        "sh",
+        "-c",
+        "docker events --filter container=gluetun --filter event=start | while IFS= read -r _; do date; echo 'gluetun restarted - waiting for network namespace...'; sleep 8; date; docker restart qbittorrent; echo 'qbittorrent restarted'; done",
+      ]
+    depends_on:
+      - gluetun
+      - qbittorrent
+    networks:
+      - traefik_net
+    profiles:
+      - media
+      - all
+
   # Prowlarr - Indexer Manager
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest
