@@ -332,7 +332,9 @@ services:
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
-      - WIREGUARD_IMPLEMENTATION=userspace
+      # Retry loop: qBittorrent WebUI may still be down (watchdog restart) when gluetun acquires the port
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'i=0; while [ $$i -lt 20 ]; do wget -qO- --post-data "json={\"listen_port\":{{PORTS}}}" http://127.0.0.1:8080/api/v2/app/setPreferences && exit 0; i=$$((i+1)); sleep 3; done; exit 1'
+      - WIREGUARD_IMPLEMENTATION=kernelspace
     ports:
       - "6881:6881"
       - "6881:6881/udp"
@@ -395,7 +397,7 @@ services:
       [
         "sh",
         "-c",
-        "docker events --filter container=gluetun --filter event=start | while IFS= read -r _; do date; echo 'gluetun restarted - waiting for network namespace...'; sleep 8; date; docker restart qbittorrent; echo 'qbittorrent restarted'; done",
+        "docker events --filter container=gluetun --filter event=start | while IFS= read -r _; do date; echo 'gluetun restarted - waiting for healthy status...'; i=0; while [ $$i -lt 30 ]; do status=$$(docker inspect -f '{{.State.Health.Status}}' gluetun 2>/dev/null); [ \"$$status\" = \"healthy\" ] && break; i=$$((i+1)); sleep 2; done; date; echo \"gluetun status=$$status after $$i polls, restarting qbittorrent\"; docker restart qbittorrent; echo 'qbittorrent restarted'; done",
       ]
     depends_on:
       - gluetun
