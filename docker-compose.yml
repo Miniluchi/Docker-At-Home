@@ -397,7 +397,7 @@ services:
       [
         "sh",
         "-c",
-        "docker events --filter container=gluetun --filter event=start | while IFS= read -r _; do date; echo 'gluetun restarted - waiting for healthy status...'; i=0; while [ $$i -lt 30 ]; do status=$$(docker inspect -f '{{.State.Health.Status}}' gluetun 2>/dev/null); [ \"$$status\" = \"healthy\" ] && break; i=$$((i+1)); sleep 2; done; date; echo \"gluetun status=$$status after $$i polls, restarting qbittorrent\"; docker restart qbittorrent; echo 'qbittorrent restarted'; done",
+        'docker events --filter container=gluetun --filter event=start | while IFS= read -r _; do date; echo ''gluetun restarted - waiting for healthy status...''; i=0; while [ $$i -lt 30 ]; do status=$$(docker inspect -f ''{{.State.Health.Status}}'' gluetun 2>/dev/null); [ "$$status" = "healthy" ] && break; i=$$((i+1)); sleep 2; done; date; echo "gluetun status=$$status after $$i polls, restarting qbittorrent"; docker restart qbittorrent; echo ''qbittorrent restarted''; done',
       ]
     depends_on:
       - gluetun
@@ -449,6 +449,78 @@ services:
       - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@file,authentik-prowlarr@docker"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
+    profiles:
+      - media
+      - all
+
+  # Jellystat - Statistiques Jellyfin
+  jellystat-db:
+    image: postgres:16-alpine
+    container_name: jellystat-db
+    restart: "on-failure:2"
+    mem_limit: 256m
+    memswap_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      POSTGRES_USER: ${JELLYSTAT_POSTGRES_USER:-jellystat}
+      POSTGRES_PASSWORD: ${JELLYSTAT_POSTGRES_PASSWORD:?jellystat database password required}
+      POSTGRES_DB: ${JELLYSTAT_POSTGRES_DB:-jellystat}
+      TZ: ${TZ}
+    volumes:
+      - jellystat_postgres_data:/var/lib/postgresql/data
+    networks:
+      - traefik_net
+    profiles:
+      - media
+      - all
+
+  jellystat:
+    image: cyfershepard/jellystat:latest
+    container_name: jellystat
+    restart: "on-failure:2"
+    mem_limit: 256m
+    memswap_limit: 256m
+    depends_on:
+      jellystat-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "require(''http'').get(''http://localhost:3000/'', r => process.exit(r.statusCode < 500 ? 0 : 1)).on(''error'', () => process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${JELLYSTAT_POSTGRES_USER:-jellystat}
+      - POSTGRES_PASSWORD=${JELLYSTAT_POSTGRES_PASSWORD:?jellystat database password required}
+      - POSTGRES_IP=jellystat-db
+      - POSTGRES_PORT=5432
+      - JWT_SECRET=${JELLYSTAT_JWT_SECRET:?jellystat JWT secret required}
+    volumes:
+      - jellystat_backup_data:/app/backend/backup-data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jellystat.rule=Host(`jellystat.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.jellystat.entrypoints=websecure"
+      - "traefik.http.routers.jellystat.tls=true"
+      - "traefik.http.routers.jellystat.tls.certresolver=letsEncrypt"
+      - "traefik.http.services.jellystat.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_net"
+      # CrowdSec + Authentik SSO via Proxy
+      - "traefik.http.routers.jellystat.middlewares=crowdsec-bouncer@file,authentik-jellystat@docker"
+      - "traefik.http.middlewares.authentik-jellystat.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-jellystat.forwardauth.trustForwardHeader=true"
     profiles:
       - media
       - all
@@ -1013,6 +1085,10 @@ volumes:
   # FreshRSS
   freshrss_data:
   freshrss_extensions:
+
+  # Jellystat
+  jellystat_postgres_data:
+  jellystat_backup_data:
 
   # Keeper.sh
   keeper_postgres_data:
