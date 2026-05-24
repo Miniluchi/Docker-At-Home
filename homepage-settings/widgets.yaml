@@ -3,9 +3,14 @@
 # Documentation: https://gethomepage.dev/configs/widgets/
 
 - resources:
+    label: Systeme
     cpu: true
     memory: true
     disk: /
+
+- resources:
+    label: Multimedia
+    disk: /mnt/media
 
 - datetime:
     text_size: xl

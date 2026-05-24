@@ -855,6 +855,7 @@ services:
       - ./homepage-settings/docker.yaml:/app/config/docker.yaml
       - homepage_config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${MEDIA_PATH}:/mnt/media:ro
     environment:
       - TZ=${TZ}
       - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
