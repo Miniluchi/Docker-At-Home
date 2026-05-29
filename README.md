@@ -1,354 +1,245 @@
 # Docker At Home
 
-Stack Docker pour auto-hébergement de services domestiques, organisée par profils fonctionnels.
+Self-hosted Docker stack for home services, organised by functional profiles.
 
 ## 📁 Architecture
 
-Cette stack utilise un fichier `docker-compose.yml` unique avec des **profils** pour organiser les services par catégories :
+A single `docker-compose.yml` uses **profiles** to group services by category:
 
-- **infrastructure** : Services de base (Traefik, OMV-Proxy, Portainer, Watchtower, Homepage, Authentik, Glances)
-- **dashboard** : Tableaux de bord (Homepage)
-- **media** : Services liés aux médias (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent)
-- **domotique** : Services domotiques (Home Assistant)
-- **tools** : Outils divers (Planka avec PostgreSQL dédié, Snapdrop)
-- **all** : Tous les services
+- **infrastructure** — Core services (Traefik, OMV-Proxy, Portainer, Authentik, Homepage, Glances, CrowdSec)
+- **dashboard** — Dashboards (Homepage)
+- **media** — Media stack (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun VPN, Jellystat, Ygège)
+- **devtools** — Developer tools (SonarQube, Authentik)
+- **domotique** — Home automation (Home Assistant)
+- **security** — Security (CrowdSec)
+- **tools** — Misc tools (RSSHub, FreshRSS)
+- **all** — Every service
 
-## 🚀 Démarrage rapide
+> The PostgreSQL databases (Authentik, Jellystat, SonarQube) start automatically with their parent service and are not listed individually.
+
+## 🚀 Quick start
 
 1. **Configuration**
 
    ```bash
    cp .env.example .env
-   # Éditer .env avec vos valeurs
+   # Edit .env with your values
    ```
 
-2. **Démarrer tous les services**
+2. **Start everything**
 
    ```bash
    docker compose --profile all up -d
    ```
 
-3. **Démarrer un profil spécifique**
+3. **Start a specific profile**
 
    ```bash
-   # Infrastructure (obligatoire en premier)
+   # Infrastructure first (required)
    docker compose --profile infrastructure up -d
 
-   # Puis d'autres profils selon vos besoins
+   # Then other profiles as needed
    docker compose --profile media up -d
    docker compose --profile domotique up -d
    ```
 
-4. **Démarrer plusieurs profils simultanément**
+4. **Start several profiles at once**
+
    ```bash
    docker compose --profile infrastructure --profile media --profile domotique up -d
    ```
 
-## 🛠️ Gestion
+## 🛠️ Management
 
 ```bash
-# Arrêter tous les services
+# Stop everything
 docker compose --profile all down
 
-# Arrêter un profil spécifique
+# Stop a specific profile
 docker compose --profile media down
 
-# Voir les logs d'un service
+# Follow a service's logs
 docker compose logs -f [service]
 
-# Voir les logs d'un profil
+# Follow a profile's logs
 docker compose --profile media logs -f
 
-# Redémarrer un service
+# Restart a service
 docker compose restart [service]
 
-# Redémarrer un profil
+# Restart a profile
 docker compose --profile media restart
 ```
 
-## ⚙️ Services par profils
+## ⚙️ Services
 
-### 🏗️ Infrastructure
+### 🏗️ infrastructure
 
-- **Traefik** : Reverse proxy avec SSL automatique (Let's Encrypt)
-- **OMV-Proxy** : Proxy nginx pour OpenMediaVault
-- **Portainer** : Gestion des conteneurs Docker
-- **Watchtower** : Mises à jour automatiques des conteneurs avec notifications email
-- **Homepage** : Dashboard principal d'accueil avec SSO Authentik via Forward Auth
-- **Authentik** : Serveur SSO/Identity Provider (OIDC, OAuth2, Forward Auth) avec base de données PostgreSQL dédiée
-- **Glances** : Monitoring système en temps réel (accès local uniquement sur port 61208)
+- **Traefik** — Reverse proxy with automatic SSL (Let's Encrypt)
+- **OMV-Proxy** — nginx proxy exposing OpenMediaVault through Traefik
+- **Portainer** — Docker management UI (OIDC SSO via Authentik)
+- **Authentik** — SSO / Identity Provider (OIDC, OAuth2, Forward Auth), with a dedicated PostgreSQL (also in `devtools`)
+- **Homepage** — Main landing dashboard, protected by Authentik Forward Auth (also in `dashboard`)
+- **Glances** — Real-time system monitoring.
+- **CrowdSec** — Intrusion detection engine; feeds the Traefik bouncer middleware (also in `security`)
 
-### 🎬 Media
+### 📊 dashboard
 
-- **Jellyfin** : Serveur de streaming de médias (alternative open-source à Plex)
-- **Jellyseerr** : Interface de demandes de médias pour Jellyfin
-- **Radarr** : Gestionnaire automatique de films
-- **Sonarr** : Gestionnaire automatique de séries TV
-- **Prowlarr** : Gestionnaire d'indexeurs pour Radarr/Sonarr
-- **qBittorrent** : Client torrent avec interface web
+- **Homepage** — Lightweight dashboard with customisable widgets, protected by Authentik SSO
 
-### 🏠 Domotique
+### 🎬 media
 
-- **Home Assistant** : Centre de contrôle domotique (mode host) avec intégration ZHA pour Zigbee
+- **Jellyfin** — Media streaming server (open-source Plex alternative)
+- **Jellyseerr** — Media request interface for Jellyfin
+- **Radarr** — Movie download/organisation automation
+- **Sonarr** — TV show download/organisation automation
+- **Prowlarr** — Indexer manager for Radarr/Sonarr
+- **qBittorrent** — Torrent client with web UI; all traffic routed through the Gluetun VPN
+- **Gluetun** — VPN client (WireGuard) tunnelling qBittorrent traffic
+- **Gluetun-Watchdog** — Restarts qBittorrent if the VPN tunnel drops
+- **Jellystat** — Usage statistics dashboard for Jellyfin (dedicated PostgreSQL)
+- **Ygège** — YGGtorrent indexer proxy (consumed by Prowlarr)
 
-### 🛠️ Tools
+### 🧰 devtools
 
-- **Planka** : Tableau Kanban pour gestion de projets
-- **Planka-DB** : Base de données PostgreSQL dédiée pour Planka
-- **Snapdrop** : Partage de fichiers local P2P
+- **SonarQube** — Code quality / static analysis (dedicated PostgreSQL)
+- **Authentik** — see _infrastructure_
 
-## 📂 Structure des médias
+### 🏠 domotique
 
-La stack media utilise une structure unifiée dans `${MEDIA_PATH}` :
+- **Home Assistant** — Home automation hub (host network, ZHA/Zigbee support)
+
+### 🛡️ security
+
+- **CrowdSec** — Behaviour-based intrusion detection; the Traefik bouncer middleware blocks flagged IPs
+
+### 🧪 tools
+
+- **RSSHub** — RSS feed generator for sites that don't provide one
+- **FreshRSS** — Self-hosted RSS aggregator (OIDC SSO via Authentik)
+
+## 📂 Media layout
+
+The media stack uses a unified layout under `${MEDIA_PATH}`:
 
 ```
 /srv/.../media/
-├── downloads/          # Téléchargements qBittorrent
-│   ├── movies/        # Films en cours
-│   └── tv/            # Séries en cours
-├── movies/            # Bibliothèque films (Jellyfin)
-└── tv/                # Bibliothèque séries (Jellyfin)
+├── downloads/          # qBittorrent downloads
+│   ├── movies/         # Movies in progress
+│   └── tv/             # TV in progress
+├── movies/             # Movie library (Jellyfin)
+└── tv/                 # TV library (Jellyfin)
 ```
 
-**Configuration recommandée** :
+**Recommended configuration**:
 
-- Radarr → Dossier racine : `/data/movies`
-- Sonarr → Dossier racine : `/data/tv`
-- qBittorrent → Téléchargements : `/data/downloads`
-- Jellyfin → Bibliothèques : `/data/movies` et `/data/tv`
+- Radarr → root folder: `/data/movies`
+- Sonarr → root folder: `/data/tv`
+- qBittorrent → downloads: `/data/downloads`
+- Jellyfin → libraries: `/data/movies` and `/data/tv`
 
-## 📋 Profils détaillés
+## 🔐 SSO with Authentik
 
-### infrastructure
+**Authentik** is an open-source Identity Provider (IdP) providing single sign-on for the stack. It supports several protocols:
 
-Services de base nécessaires au fonctionnement de la stack.
+- **OIDC** (OpenID Connect) — for apps with native support
+- **OAuth2** — for modern apps
+- **SAML** — for enterprise apps
+- **Forward Auth** — for apps without native SSO, via Traefik's `forwardauth` middleware and Authentik's embedded outpost
 
-- **traefik** : Reverse proxy avec SSL automatique (Let's Encrypt)
-- **omv-proxy** : Proxy nginx pour accès à OpenMediaVault via Traefik
-- **portainer** : Interface web de gestion Docker (dépend d'Authentik pour le démarrage)
-- **watchtower** : Mises à jour automatiques des conteneurs (vérification quotidienne)
-- **homepage** : Dashboard principal avec widgets personnalisables et SSO Authentik via Forward Auth
-- **authentik-server** : Serveur SSO/Identity Provider avec support OIDC, OAuth2 et Forward Auth
-- **authentik-worker** : Worker pour tâches en arrière-plan (provisioning, webhooks, etc.)
-- **authentik-db** : PostgreSQL 16 dédié pour Authentik
-- **glances** : Monitoring système en temps réel (CPU, RAM, réseau, Docker) accessible sur port 61208
+### Forward Auth (via Traefik → embedded outpost)
 
-### dashboard
+The following services are gated by Authentik Forward Auth. Each one has a dedicated **`<service>-access` group** that controls who may reach it (a user must belong to the group):
 
-Tableaux de bord et interfaces de contrôle.
+`homepage`, `omv`, `radarr`, `sonarr`, `prowlarr`, `qbittorrent`, `jellystat`, `glances`
 
-- **homepage** : Dashboard léger avec widgets personnalisables et protection SSO
+The Traefik middlewares all point at the embedded outpost:
 
-### media
-
-Stack complète de gestion et diffusion de médias.
-
-- **jellyfin** : Serveur de streaming avec support transcoding (GPU non requis)
-- **jellyseerr** : Interface de demandes de médias avec gestion utilisateurs
-- **radarr** : Automatisation téléchargement et organisation des films
-- **sonarr** : Automatisation téléchargement et organisation des séries
-- **prowlarr** : Gestion centralisée des indexeurs torrent/usenet
-- **qbittorrent** : Client torrent avec interface web, configuration DNS personnalisée pour trackers
-
-### domotique
-
-Écosystème domotique avec support Zigbee natif.
-
-- **homeassistant** : Centre de contrôle domotique (mode host pour accès périphériques)
-
-### tools
-
-Outils divers et utilitaires avec bases de données dédiées.
-
-- **planka** : Tableau Kanban pour gestion de projets
-- **planka-db** : PostgreSQL 15 dédié pour Planka
-- **snapdrop** : Partage de fichiers local P2P (alternative à AirDrop)
-
-## 🔐 Authentification SSO avec Authentik
-
-### Présentation
-
-**Authentik** est un Identity Provider (IdP) open-source qui fournit l'authentification unique (SSO) pour tous vos services. Il prend en charge plusieurs protocoles d'authentification :
-
-- **OIDC** (OpenID Connect) : Pour les applications avec support natif
-- **OAuth2** : Pour les applications modernes
-- **SAML** : Pour les applications d'entreprise
-- **Forward Auth** : Pour les applications sans support SSO natif (Radarr, Sonarr, Prowlarr, Homepage)
-
-### Services protégés par Authentik
-
-#### 🔹 Authentification Forward Auth (via Traefik)
-
-Les services suivants utilisent Authentik comme proxy d'authentification via les middlewares Traefik Forward Auth :
-
-- **Homepage** : Dashboard protégé par authentification Authentik
-- **Radarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
-- **Sonarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
-- **Prowlarr** : Authentification externe désactivée (`AuthenticationMethod=External`)
-
-**⚠️ Important** : Ces services ont leur authentification interne désactivée et dépendent entièrement d'Authentik. Si Authentik ne démarre pas, ces services seront **inaccessibles** (erreur 502/503) mais **sécurisés**.
-
-#### 🔹 Authentification OIDC native (configuration manuelle)
-
-- **Portainer** : SSO OIDC (configuration manuelle requise dans l'interface)
-- **Jellyfin** : SSO OIDC (configuration via plugin SSO)
-- **Planka** : SSO OIDC (configuration via variables d'environnement)
-
-### Configuration des dépendances
-
-Plusieurs services ont une dépendance explicite sur Authentik :
-
-```yaml
-depends_on:
-  authentik-server:
-    condition: service_healthy
+```
+http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
 ```
 
-**Services concernés** :
+> **Arr services**: Radarr, Sonarr and Prowlarr have their internal auth disabled (`<AuthenticationMethod>External</AuthenticationMethod>` in `config.xml`) and rely entirely on Authentik. If Authentik is down they are **unreachable** (502/503) but **secured**.
 
-- Radarr, Sonarr, Prowlarr (Stack Arr)
-- Portainer
-- Homepage
-- Planka
+### Native OIDC
 
-**Comportement** :
+- **Portainer** — OIDC (Authentik side managed by Terraform; the OAuth fields are entered manually in Portainer's UI, see below)
+- **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
+- **Jellyfin** — OIDC via the SSO plugin (manual)
 
-- ✅ Ces services ne démarreront **que si Authentik est opérationnel**
-- ✅ Garantit que l'authentification est disponible avant l'accès aux services
-- ⚠️ Si Authentik tombe, ces services ne redémarreront pas automatiquement
+### Access
 
-### Accès à Authentik
+- **URL**: `https://auth.${DOMAIN_BASE}`
+- **Bootstrap admin**: set via `AUTHENTIK_BOOTSTRAP_EMAIL` and `AUTHENTIK_BOOTSTRAP_PASSWORD` in `.env`
 
-- **URL** : `https://auth.${DOMAIN_BASE}`
-- **Compte admin** : Configuré via `AUTHENTIK_BOOTSTRAP_EMAIL` et `AUTHENTIK_BOOTSTRAP_PASSWORD` dans `.env`
+### Portainer OIDC — UI configuration
 
-### Configuration des applications dans Authentik
+Portainer does not read OIDC settings from environment variables, so the OAuth section must be filled in its web UI. Terraform creates the Authentik provider/application and writes the endpoints to `terraform/authentik/generated/portainer.env` for reference.
 
-Pour chaque service protégé par Authentik, vous devez créer :
+In Portainer → **Settings → Authentication → OAuth**:
 
-1. **Provider** : Configure le protocole d'authentification (OIDC, Forward Auth, etc.)
-2. **Application** : Relie le provider à votre service
-3. **Embedded Outpost** : Pour le Forward Auth (inclus dans le serveur Authentik)
+| Field              | Value                                                              |
+| ------------------ | ------------------------------------------------------------------ |
+| Provider           | Custom                                                             |
+| Client ID / Secret | from Authentik (see `generated/portainer.env`)                     |
+| Authorization URL  | `https://auth.${DOMAIN_BASE}/application/o/authorize/`             |
+| Access token URL   | `https://auth.${DOMAIN_BASE}/application/o/token/`                 |
+| Resource URL       | `https://auth.${DOMAIN_BASE}/application/o/userinfo/`              |
+| Logout URL         | `https://auth.${DOMAIN_BASE}/application/o/portainer/end-session/` |
+| Redirect URL       | `https://portainer.${DOMAIN_BASE}/`                                |
+| User identifier    | `preferred_username` (or `email`)                                  |
+| Scopes             | `email openid profile`                                             |
 
-#### Exemple : Configuration Homepage (Forward Auth)
+## 🧬 Infrastructure as Code (Terraform)
 
-Homepage utilise le Forward Auth intégré d'Authentik. La configuration est automatique via les labels Traefik :
+The Authentik configuration is managed as code under `terraform/authentik/` (provider `goauthentik/authentik`), so it is reproducible across servers.
 
-```yaml
-labels:
-  - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
-  - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-  - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
-  - "traefik.http.middlewares.authentik-homepage.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid"
-```
+| File                                               | Purpose                                                                                                                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
+| `shared.tf`                                        | Shared data sources (authorization/invalidation flows, default OIDC scopes)                                                                                                     |
+| `freshrss.tf`, `portainer.tf`                      | OIDC providers + applications (+ generated env file)                                                                                                                            |
+| `proxy_forwardauth.tf`                             | The 8 Forward Auth services: per service a proxy provider (`forward_single`), an application, a `<service>-access` group, and a policy binding restricting access to that group |
+| `outpost.tf`                                       | Embedded outpost; all proxy providers are attached automatically                                                                                                                |
 
-Variables d'environnement dans `.env` :
+The embedded outpost is a pre-existing singleton: `outpost.tf` adopts it automatically through an `import` block (requires **Terraform ≥ 1.6**), so no manual `terraform import` is needed on a fresh server.
+
+**Usage**:
 
 ```bash
-HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
-HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
+cd terraform/authentik
+# set authentik_url and authentik_token in terraform.tfvars
+terraform init
+terraform plan
+terraform apply
 ```
 
-#### Exemple : Configuration Portainer (OIDC)
+> After `apply`, add your user to the relevant **`<service>-access`** groups — otherwise Forward Auth will deny access since the policy binding requires group membership.
 
-**⚠️ Note** : Portainer nécessite une configuration manuelle dans son interface web car il ne supporte pas les variables d'environnement pour OIDC.
+## 🔒 Security notes
 
-**Étapes de configuration** :
+- ✅ Centralised authentication, unified users/groups, native 2FA/MFA, centralised auth logs
+- ✅ CrowdSec + Traefik bouncer block malicious IPs at the edge
+- ⚠️ **Single point of failure**: if Authentik is down, every Forward Auth / OIDC service becomes inaccessible
+- ⚠️ Arr services (`AuthenticationMethod=External`) have **no protection of their own** without Authentik
 
-1. **Dans Authentik** : Créer un provider OIDC
-   - Aller dans `Applications` → `Providers` → `Create`
-   - Type : `OAuth2/OpenID Provider`
-   - Name : `portainer`
-   - Authorization flow : Choisir un flow (ex: `default-authorization-flow`)
-   - Redirect URIs : `https://portainer.${DOMAIN_BASE}`
-   - Signing Key : Sélectionner une clé disponible
-   - Copier le `Client ID` et `Client Secret` générés
+**Recommendations**:
 
-2. **Dans Authentik** : Créer une application
-   - Aller dans `Applications` → `Create`
-   - Name : `Portainer`
-   - Slug : `portainer`
-   - Provider : Sélectionner le provider créé précédemment
+1. Monitor Authentik (a healthcheck is configured)
+2. Back up the PostgreSQL databases regularly
+3. Alert on Authentik downtime
+4. Periodically test a full-stack startup
 
-3. **Dans Portainer** : Activer OIDC
-   - Se connecter en tant qu'administrateur local
-   - Aller dans `Settings` → `Authentication`
-   - Activer `OAuth`
-   - Renseigner :
-     - **Automatic user provision** : On
-     - **Provider** : Custom
-     - **Client ID** : Celui généré dans Authentik
-     - **Client Secret** : Celui généré dans Authentik
-     - **Authorization URL** : `https://auth.${DOMAIN_BASE}/application/o/authorize/`
-     - **Access token URL** : `https://auth.${DOMAIN_BASE}/application/o/token/`
-     - **Resource URL** : `https://auth.${DOMAIN_BASE}/application/o/userinfo/`
-     - **Redirect URL** : `https://portainer.${DOMAIN_BASE}`
-     - **User identifier** : `preferred_username` ou `email`
-     - **Scopes** : `openid profile email`
+### Disabling internal auth on Arr services
 
-4. **Tester la connexion** : Se déconnecter et tester l'authentification via Authentik
-
-**Variables d'environnement dans `.env`** (pour référence uniquement) :
-
-```bash
-PORTAINER_OIDC_CLIENT_ID=<client_id_depuis_authentik>
-PORTAINER_OIDC_CLIENT_SECRET=<client_secret_depuis_authentik>
-```
-
-#### Exemple : Configuration Stack Arr (Forward Auth)
-
-La stack Arr utilise le Forward Auth intégré d'Authentik via les middlewares Traefik. La configuration est similaire à Homepage :
-
-1. Créer une **Application** dans Authentik pour chaque service (Radarr, Sonarr, Prowlarr)
-2. Configurer un **Forward Auth Provider** pointant vers chaque application
-3. Les middlewares Traefik se connectent directement à : `http://authentik-server:9000/outpost.goauthentik.io/auth/traefik`
-
-### Monitoring avec Glances
-
-**Glances** est un outil de monitoring système en temps réel accessible localement :
-
-- **URL** : `http://<ip_serveur>:61208`
-- **Fonctionnalités** :
-  - Monitoring CPU, RAM, disques, réseau
-  - Surveillance des conteneurs Docker
-  - Accès en lecture seule au système hôte (PID host)
-
-**⚠️ Sécurité** : Glances est accessible uniquement en local (pas d'exposition via Traefik) et n'est pas protégé par Authentik.
-
-### Sécurité
-
-**Avantages** :
-
-- ✅ Authentification centralisée pour tous les services
-- ✅ Gestion unifiée des utilisateurs et groupes
-- ✅ Support 2FA/MFA natif
-- ✅ Logs d'authentification centralisés
-- ✅ Monitoring système avec Glances
-
-**Risques à considérer** :
-
-- ⚠️ Point unique de défaillance (SPOF) : Si Authentik tombe, plusieurs services deviennent inaccessibles
-- ⚠️ Services avec `AuthenticationMethod=External` n'ont **aucune protection** si Authentik ne fonctionne pas
-
-**Recommandations** :
-
-1. **Monitoring** : Surveiller l'état d'Authentik (healthcheck configuré)
-2. **Sauvegardes** : Sauvegarder régulièrement la base de données PostgreSQL
-3. **Alertes** : Configurer des notifications si Authentik devient indisponible
-4. **Tests** : Tester régulièrement le démarrage de la stack complète
-
-### Désactivation de l'authentification interne
-
-Pour les services Arr, l'authentification interne a été désactivée en modifiant manuellement le fichier `config.xml` :
+Internal auth is disabled by editing `config.xml` directly (not available via environment variables):
 
 ```xml
 <AuthenticationMethod>External</AuthenticationMethod>
 ```
 
-**Note** : Cette configuration n'est **pas disponible via variables d'environnement** et doit être modifiée directement dans les fichiers de configuration.
+**Procedure**:
 
-**Procédure** :
-
-1. Arrêter les conteneurs : `docker compose stop radarr sonarr prowlarr`
-2. Modifier les fichiers `config.xml` dans les volumes Docker
-3. Redémarrer les conteneurs : `docker compose start radarr sonarr prowlarr`
+1. Stop the containers: `docker compose stop radarr sonarr prowlarr`
+2. Edit the `config.xml` files in the Docker volumes
+3. Start them again: `docker compose start radarr sonarr prowlarr`
