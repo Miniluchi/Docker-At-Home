@@ -576,15 +576,17 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET fournis par Terraform
+    # (cf. terraform/authentik/generated/freshrss.env)
+    env_file:
+      - ./terraform/authentik/generated/freshrss.env
     environment:
       - TZ=${TZ}
       - CRON_MIN=1,31
       # OIDC Configuration avec Authentik
       - OIDC_ENABLED=1
       - OIDC_PROVIDER_METADATA_URL=https://auth.${DOMAIN_BASE}/application/o/freshrss/.well-known/openid-configuration
-      - OIDC_CLIENT_ID=${FRESHRSS_OIDC_CLIENT_ID}
-      - OIDC_CLIENT_SECRET=${FRESHRSS_OIDC_CLIENT_SECRET}
-      - OIDC_X_FORWARDED_HEADERS=X-Forwarded-Port X-Forwarded-Proto X-Forwarded-Host
+      - OIDC_X_FORWARDED_HEADERS=X-Forwarded-Proto X-Forwarded-Host
       - OIDC_SCOPES=openid email profile
     volumes:
       - freshrss_data:/var/www/FreshRSS/data

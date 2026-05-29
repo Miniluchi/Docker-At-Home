@@ -1,0 +1,27 @@
+# Local .terraform directories
+.terraform/
+.terraform.lock.hcl
+
+# State files (contiennent des secrets en clair)
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Variable files avec secrets
+*.tfvars
+*.tfvars.json
+
+# Override files (usage local)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Plans sauvegardés (peuvent contenir des secrets)
+*.tfplan
+
+# Fichiers d'env générés par Terraform (contiennent des secrets OIDC)
+generated/
