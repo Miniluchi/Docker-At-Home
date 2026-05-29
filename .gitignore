@@ -1,3 +1,4 @@
 .env
 # MACOS
 .DS_Store
+.tfvars
