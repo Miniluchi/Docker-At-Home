@@ -1,0 +1,49 @@
+# Variables Terraform de la stack Arr. terraform.tfvars est gitignoré (secrets en clair).
+
+# Connectivité API (URL internes traefik_net).
+radarr_url   = "http://radarr:7878"
+sonarr_url   = "http://sonarr:8989"
+prowlarr_url = "http://prowlarr:9696"
+
+# Clés API (config.xml -> <ApiKey>).
+radarr_api_key   = "REMPLACER_PAR_LA_CLE_RADARR"
+sonarr_api_key   = "REMPLACER_PAR_LA_CLE_SONARR"
+prowlarr_api_key = "REMPLACER_PAR_LA_CLE_PROWLARR"
+
+# Chemins (casse exacte).
+radarr_root_folder_path = "/data/Film"
+sonarr_root_folder_path = "/data/Serie"
+
+# qBittorrent.
+qbt_host            = "gluetun"
+qbt_port            = 8080
+qbt_username        = "REMPLACER_PAR_LE_USER_QBT"
+qbt_password        = "REMPLACER_PAR_LE_MDP_QBT"
+radarr_qbt_category = "radarr"
+sonarr_qbt_category = "sonarr"
+
+# Telegram.
+telegram_bot_token = "123456789:REMPLACER_PAR_LE_TOKEN_DU_BOT"
+telegram_chat_id   = "REMPLACER_PAR_LE_CHAT_ID"
+
+# Profils de qualité.
+radarr_profile_language = "French" # "Any" pour laisser les custom formats décider
+
+# Indexeurs Prowlarr.
+ygege_url               = "http://ygege:8715/"
+ygege_indexer_name      = "Ygégé"
+prowlarr_app_profile_id = 1
+prowlarr_sync_level     = "fullSync"
+
+# IDs d'import (voir imports.tf) : vide = créé, renseigné = adopté.
+radarr_root_folder_import_id             = ""
+radarr_download_client_import_id         = ""
+sonarr_root_folder_import_id             = ""
+sonarr_download_client_import_id         = ""
+prowlarr_download_client_import_id       = ""
+prowlarr_application_radarr_import_id    = ""
+prowlarr_application_sonarr_import_id    = ""
+prowlarr_notification_telegram_import_id = ""
+radarr_notification_telegram_import_id   = ""
+sonarr_notification_telegram_import_id   = ""
+prowlarr_indexer_ygege_import_id         = ""
