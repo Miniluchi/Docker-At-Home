@@ -36,7 +36,6 @@ services:
       retries: 3
     command:
       - "--api.dashboard=false"
-      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--log.level=DEBUG"
       - "--ping=true"
