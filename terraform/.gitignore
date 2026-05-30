@@ -1,18 +1,22 @@
-# Local .terraform directories
+# Répertoires .terraform locaux (caches/plugins) — PAS le lock file.
+# .terraform.lock.hcl est VOLONTAIREMENT versionné (hashes providers
+# reproductibles, multi-plateforme via `terraform providers lock`).
 .terraform/
-.terraform.lock.hcl
 
-# State files (contiennent des secrets en clair)
+# State (contient des secrets en clair)
 *.tfstate
 *.tfstate.*
 
-# Crash log files
+# Crash logs
 crash.log
 crash.*.log
 
-# Variable files avec secrets
+# Fichiers de variables avec secrets.
+# NB : un pattern « .tfvars » seul ne matche PAS « terraform.tfvars » -> on
+# utilise « *.tfvars » (qui le couvre) tout en gardant l'exemple versionné.
 *.tfvars
 *.tfvars.json
+!terraform.tfvars.example
 
 # Override files (usage local)
 override.tf
@@ -23,5 +27,5 @@ override.tf.json
 # Plans sauvegardés (peuvent contenir des secrets)
 *.tfplan
 
-# Fichiers d'env générés par Terraform (contiennent des secrets OIDC)
+# Fichiers générés (au cas où)
 generated/
