@@ -7,3 +7,9 @@ http:
           crowdsecMode: live
           crowdsecLapiKey: "{{ env "CROWDSEC_BOUNCER_API_KEY" }}"
           crowdsecLapiHost: crowdsec:8080
+          # AppSec WAF
+          crowdsecAppsecEnabled: true
+          crowdsecAppsecHost: crowdsec:7422
+          crowdsecAppsecFailureBlock: true
+          # fail-open si CrowdSec est injoignable (évite un 403 global au redémarrage)
+          crowdsecAppsecUnreachableBlock: false

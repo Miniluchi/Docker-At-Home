@@ -52,7 +52,7 @@ services:
       - "--accesslog.bufferingsize=100"
       # Plugin CrowdSec Bouncer
       - "--experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
-      - "--experimental.plugins.bouncer.version=v1.5.1"
+      - "--experimental.plugins.bouncer.version=v1.6.0"
       # Fichier de configuration dynamique (middleware plugin)
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
       - "--providers.file.watch=true"
@@ -919,7 +919,7 @@ services:
       start_period: 30s
     environment:
       - TZ=${TZ}
-      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux
+      - COLLECTIONS=crowdsecurity/traefik crowdsecurity/http-cve crowdsecurity/whitelist-good-actors crowdsecurity/linux crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
       - GID=${PGID}
       # Enroll key pour la console CrowdSec
       - ENROLL_KEY=${CROWDSEC_ENROLL_KEY}
