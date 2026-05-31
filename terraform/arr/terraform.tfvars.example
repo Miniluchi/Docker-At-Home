@@ -13,6 +13,7 @@ prowlarr_api_key = "REMPLACER_PAR_LA_CLE_PROWLARR"
 # Chemins (casse exacte).
 radarr_root_folder_path = "/data/Film"
 sonarr_root_folder_path = "/data/Serie"
+recycle_bin_path        = "/data/.recyclebin"
 
 # qBittorrent.
 qbt_host            = "gluetun"

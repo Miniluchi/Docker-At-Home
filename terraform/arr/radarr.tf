@@ -127,7 +127,7 @@ resource "radarr_media_management" "config" {
   import_extra_files                          = true
   minimum_free_space_when_importing           = 100
   paths_default_static                        = false
-  recycle_bin                                 = ""
+  recycle_bin                                 = var.recycle_bin_path
   recycle_bin_cleanup_days                    = 7
   rescan_after_refresh                        = "always"
   set_permissions_linux                       = false
