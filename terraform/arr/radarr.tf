@@ -62,11 +62,12 @@ data "radarr_quality" "remux_2160p" { name = "Remux-2160p" }
 
 # cutoff = Bluray : on upgrade jusqu'au Bluray puis stop (pas de Remux).
 resource "radarr_quality_profile" "movies_1080p" {
-  name             = "FR-1080p"
-  upgrade_allowed  = true
-  cutoff           = data.radarr_quality.bluray_1080p.id
-  min_format_score = 50
-  language         = data.radarr_language.profile
+  name                = "FR-1080p"
+  upgrade_allowed     = true
+  cutoff              = data.radarr_quality.bluray_1080p.id
+  min_format_score    = 50
+  cutoff_format_score = 175
+  language            = data.radarr_language.profile
 
   quality_groups = [
     { qualities = [data.radarr_quality.hdtv_1080p] },
@@ -86,11 +87,12 @@ resource "radarr_quality_profile" "movies_1080p" {
 }
 
 resource "radarr_quality_profile" "movies_2160p" {
-  name             = "FR-2160p"
-  upgrade_allowed  = true
-  cutoff           = data.radarr_quality.bluray_2160p.id
-  min_format_score = 50
-  language         = data.radarr_language.profile
+  name                = "FR-2160p"
+  upgrade_allowed     = true
+  cutoff              = data.radarr_quality.bluray_2160p.id
+  min_format_score    = 50
+  cutoff_format_score = 175
+  language            = data.radarr_language.profile
 
   quality_groups = [
     { qualities = [data.radarr_quality.hdtv_2160p] },

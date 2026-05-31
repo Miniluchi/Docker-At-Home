@@ -1,6 +1,7 @@
 # Custom formats partagés Radarr/Sonarr (ReleaseTitleSpecification, '\b' -> '\\b').
-# Langue FR favorisée, VOSTFR/VFQ + unwanted bloqués (-10000). HDR/DV : bonus
-# faibles (<50) pour ne pas faire passer une release non-FR sous min_format_score.
+# Langue FR favorisée, VOSTFR/VFQ + unwanted bloqués (-10000). HDR/DV + audio :
+# bonus faibles et bornés (pire cas non-FR 2160p DV+HDR+audio = 49 < min_format_score 50).
+# Audio : Atmos `negate` dans les variantes non-Atmos pour ne pas cumuler les scores.
 # `score` = 2 profils ; `score_1080p`/`score_2160p` surchargent par résolution.
 locals {
   custom_formats = {
@@ -160,6 +161,138 @@ locals {
         required       = true
         value          = "\\b(DV|DOVI|DOLBY.?VISION)\\b"
       }]
+    }
+
+    truehd_atmos = {
+      name  = "TrueHD Atmos"
+      score = 14
+      specifications = [
+        {
+          name           = "TrueHD"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\bTrue[ ._-]?HD\\b"
+        },
+        {
+          name           = "Atmos"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\bATMOS\\b"
+        },
+      ]
+    }
+
+    dts_x = {
+      name  = "DTS-X"
+      score = 13
+      specifications = [{
+        name           = "DTS-X"
+        implementation = "ReleaseTitleSpecification"
+        negate         = false
+        required       = true
+        value          = "\\bDTS[ ._-]?X\\b"
+      }]
+    }
+
+    ddplus_atmos = {
+      name  = "DD+ Atmos"
+      score = 12
+      specifications = [
+        {
+          name           = "DD+ / E-AC-3"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\b(DDP|EAC3|E[ ._-]?AC[ ._-]?3)\\b"
+        },
+        {
+          name           = "Atmos"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\bATMOS\\b"
+        },
+      ]
+    }
+
+    truehd = {
+      name  = "TrueHD"
+      score = 10
+      specifications = [
+        {
+          name           = "TrueHD"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\bTrue[ ._-]?HD\\b"
+        },
+        {
+          name           = "Atmos"
+          implementation = "ReleaseTitleSpecification"
+          negate         = true
+          required       = true
+          value          = "\\bATMOS\\b"
+        },
+      ]
+    }
+
+    dts_hd_ma = {
+      name  = "DTS-HD MA"
+      score = 9
+      specifications = [{
+        name           = "DTS-HD MA"
+        implementation = "ReleaseTitleSpecification"
+        negate         = false
+        required       = true
+        value          = "\\bDTS[ ._-]?HD[ ._-]?MA\\b"
+      }]
+    }
+
+    flac = {
+      name  = "FLAC"
+      score = 6
+      specifications = [{
+        name           = "FLAC"
+        implementation = "ReleaseTitleSpecification"
+        negate         = false
+        required       = true
+        value          = "\\bFLAC\\b"
+      }]
+    }
+
+    pcm = {
+      name  = "PCM"
+      score = 6
+      specifications = [{
+        name           = "PCM"
+        implementation = "ReleaseTitleSpecification"
+        negate         = false
+        required       = true
+        value          = "\\b(L?PCM)\\b"
+      }]
+    }
+
+    ddplus = {
+      name  = "DD+"
+      score = 4
+      specifications = [
+        {
+          name           = "DD+ / E-AC-3"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = true
+          value          = "\\b(DDP|EAC3|E[ ._-]?AC[ ._-]?3)\\b"
+        },
+        {
+          name           = "Atmos"
+          implementation = "ReleaseTitleSpecification"
+          negate         = true
+          required       = true
+          value          = "\\bATMOS\\b"
+        },
+      ]
     }
   }
 }
