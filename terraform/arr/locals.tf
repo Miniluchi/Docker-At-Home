@@ -294,5 +294,141 @@ locals {
         },
       ]
     }
+
+    lq = {
+      name  = "LQ"
+      score = -10000
+      specifications = [
+        {
+          name           = "Groupes LQ"
+          implementation = "ReleaseGroupSpecification"
+          negate         = false
+          required       = false
+          value          = "^(24xHD|41RGB|4K4U|AOC|AROMA|aXXo|AZAZE|BARC0DE|BAUCKLEY|BdC|beAst|BTM|C1NEM4|C4K|CDDHD|CHAOS|CHD|CiNE|COLLECTiVE|CREATiVE24|CrEwSaDe|CTFOH|d3g|DDR|DNL|DRX|E|EPiC|EuReKA|FaNGDiNG0|Feranki1980|FGT|FMD|FRDS|FZHD|GalaxyRG|GHD|GPTHD|HDHUB4U|HDS|HDT|HDTime|HDWinG|iNTENSO|iPlanet|iVy|jennaortega(UHD)?|JFF|KC|KiNGDOM|KIRA|L0SERNIGHT|LAMA|Leffe|Liber8|LiGaS|LUCY|MarkII|MeGusta|Mesc|mHD|mSD|MTeam|MT|MySiLU|NhaNc3|nHD|nikt0|nSD|OFT|PATOMiEL|PRODJi|PSA|PTNK|R&H|RARBG|RDN|Rifftrax|RU4HD|SANTi|Scene|SHD|ShieldBearer|STUTTERSHIT|SUNSCREEN|TBS|TEKNO3D|Tigole|TIKO|VISIONPLUSHDR(-X|1000)?|WAF|WiKi|x0r|YIFY|YTS(.(MX|LT|AG))?|Zeus)$"
+        },
+        {
+          name           = "NoGroup"
+          implementation = "ReleaseGroupSpecification"
+          negate         = false
+          required       = false
+          value          = "NoGr(ou)?p"
+        },
+        {
+          name           = "Pahe"
+          implementation = "ReleaseGroupSpecification"
+          negate         = false
+          required       = false
+          value          = "Pahe(\\.(ph|in))?\\b"
+        },
+      ]
+    }
+
+    lq_release_title = {
+      name  = "LQ (Release Title)"
+      score = -10000
+      specifications = [
+        {
+          name           = "Groupes (dans le titre)"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "\\b(1XBET|BEN[ ._-]THE[ ._-]MEN|Feranki1980|GalaxyRG|READ(\\s|\\.)+NOTE|SWTYBLZ|TeeWee|TEKNO3D|Will1869)\\b"
+        },
+        {
+          name           = "D3US"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(-D3US|D3US-)"
+        },
+        {
+          name           = "EVO (hors WEB-DL)"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(?<=\\b[12]\\d{3}\\b.*?)(?<!\\b(web[ ._-]?(dl|rip)?).*?)\\b(EVO)\\b"
+        },
+        {
+          name           = "HHWEB (hors MA)"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "^(?!.*\\bMA\\b.*\\bWEB-?DL\\b).*\\b(HHWEB)\\b"
+        },
+        {
+          name           = "jennaortega"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(?<!-)\\b(jennaortega(UHD)?)\\b"
+        },
+        {
+          name           = "PiRaTeS (hors WEB-DL)"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(?<=\\b[12]\\d{3}\\b.*?)(?<!\\b(web[ ._-]?(dl|rip)?).*?)\\b(PiRaTeS)\\b"
+        },
+        {
+          name           = "UnKn0wn (hors Remux)"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(?<!\\b(remux).*?)\\b(unkn0wn)\\b"
+        },
+      ]
+    }
+
+    obfuscated = {
+      name  = "Obfuscated"
+      score = -10000
+      specifications = [
+        {
+          name           = "Suffixes obfusqués"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "-(4P|4Planet|AsRequested|BUYMORE|Chamele0n|GEROV|iNC0GNiTO|NZBGeek|Obfuscated|postbot|Rakuv|WhiteRev|xpost|WRTEAM|CAPTCHA)\\b"
+        },
+        {
+          name           = "_nzb"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "_nzb\\b"
+        },
+        {
+          name           = "Scrambled"
+          implementation = "ReleaseTitleSpecification"
+          negate         = false
+          required       = false
+          value          = "(?<=\\b[12]\\d{3}\\b).*(Scrambled)\\b"
+        },
+      ]
+    }
+
+    retags = {
+      name  = "Retags"
+      score = -10000
+      specifications = [{
+        name           = "Retags (post-upload)"
+        implementation = "ReleaseTitleSpecification"
+        negate         = false
+        required       = false
+        value          = "(\\[rartv\\]|\\[rarbg\\]|\\[eztvx?[ ._-]?(io|re|to)?\\]|\\[TGx\\]|[.]VAV\\b|[.]heb\\b|\\bORARBG\\b)"
+      }]
+    }
+
+    bad_dual_groups = {
+      name  = "Bad Dual Groups"
+      score = -10000
+      specifications = [{
+        name           = "Mauvais groupes dual-audio"
+        implementation = "ReleaseGroupSpecification"
+        negate         = false
+        required       = false
+        value          = "^(alfaHD.*|BAT|BlackBit|BNd|C\\.A\\.A|Cory|CYPHER|EniaHD|EXTREME|FF|FOXX|G4RiS|GUEIRA|LCD|MGE\\b.*|MLH|N3G4N|ONLYMOViE|PD|PTHome|RiPER|RK|SiGLA|Tars|TM\\b|tokar86a|TURG|TvR|vnlls|WTV|XiQUEXiQUE|Yatogam1|YusukeFLA|ZigZag|ZNM)$"
+      }]
+    }
   }
 }

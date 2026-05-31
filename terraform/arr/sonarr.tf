@@ -119,7 +119,7 @@ resource "sonarr_media_management" "config" {
   import_extra_files          = true
   minimum_free_space          = 100
   recycle_bin_days            = 7
-  recycle_bin_path            = ""
+  recycle_bin_path            = var.recycle_bin_path
   rescan_after_refresh        = "always"
   set_permissions             = false
   skip_free_space_check       = false

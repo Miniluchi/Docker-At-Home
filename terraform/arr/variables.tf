@@ -48,6 +48,12 @@ variable "sonarr_root_folder_path" {
   default     = "/data/Series"
 }
 
+variable "recycle_bin_path" {
+  type        = string
+  description = "Corbeille Radarr/Sonarr (récupération des suppressions). Sur /data, même FS que les médias -> déplacements atomiques."
+  default     = "/data/.recyclebin"
+}
+
 # qBittorrent : tourne en network_mode service:gluetun -> vu des Arr = gluetun:8080.
 variable "qbt_host" {
   type        = string
