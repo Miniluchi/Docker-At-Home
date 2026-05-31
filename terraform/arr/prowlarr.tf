@@ -1,35 +1,4 @@
-# Prowlarr (indexeurs)
-
-# Indexeur Ygège (définition Cardigann montée dans le conteneur :
-# ./ygege.yml -> /config/Definitions/Custom/ygege.yml). baseUrl doit matcher une
-# entrée 'links' de ygege.yml.
-resource "prowlarr_indexer" "ygege" {
-  name            = var.ygege_indexer_name
-  enable          = true
-  implementation  = "Cardigann"
-  config_contract = "CardigannSettings"
-  protocol        = "torrent"
-  app_profile_id  = var.prowlarr_app_profile_id
-  priority        = 1
-
-  fields = [
-    {
-      name       = "definitionFile"
-      text_value = "ygege"
-    },
-    {
-      name       = "baseUrl"
-      text_value = var.ygege_url
-    },
-  ]
-
-  # Bug provider sur `fields` (sensible) -> create/replace échoue. On ignore les
-  # changements de `fields` (adoption par import) ; modifier ygege_url ne sera
-  # donc PAS répercuté : ajuster le baseUrl dans Prowlarr puis ré-importer.
-  lifecycle {
-    ignore_changes = [fields]
-  }
-}
+# Prowlarr (download client, applications, notifications). Indexeurs : indexers.tf.
 
 resource "prowlarr_download_client_qbittorrent" "qbittorrent" {
   name     = "qBittorrent"
@@ -72,11 +41,6 @@ resource "prowlarr_notification_telegram" "telegram" {
   on_application_update   = true
   include_health_warnings = true
   include_manual_grabs    = true
-}
-
-output "prowlarr_indexer_ygege_id" {
-  description = "ID de l'indexeur Ygège géré."
-  value       = prowlarr_indexer.ygege.id
 }
 
 output "prowlarr_application_ids" {

@@ -104,22 +104,12 @@ variable "radarr_profile_language" {
   default     = "French"
 }
 
-variable "ygege_url" {
-  type        = string
-  description = "Base URL de l'indexeur Cardigann Ygège (doit matcher une entrée 'links' de ygege.yml)."
-  default     = "http://ygege:8715/"
-}
-
-variable "ygege_indexer_name" {
-  type        = string
-  description = "Nom affiché de l'indexeur Ygège dans Prowlarr."
-  default     = "Ygégé"
-}
-
-variable "prowlarr_app_profile_id" {
-  type        = number
-  description = "ID du Sync/App Profile Prowlarr (1 = Standard par défaut)."
-  default     = 1
+# Indexeurs : structure dans indexers.tf (local.indexers). Tous adoptés par
+# import (le provider ne crée pas d'indexeur de façon fiable) -> id par indexeur.
+variable "indexer_import_ids" {
+  type        = map(string)
+  description = "ID Prowlarr par indexeur (clé = celle de local.indexers)."
+  default     = {}
 }
 
 variable "prowlarr_sync_level" {
@@ -187,11 +177,5 @@ variable "radarr_notification_telegram_import_id" {
 variable "sonarr_notification_telegram_import_id" {
   type        = string
   description = "ID de la notification Telegram Sonarr existante à adopter."
-  default     = ""
-}
-
-variable "prowlarr_indexer_ygege_import_id" {
-  type        = string
-  description = "ID de l'indexeur Ygège existant à adopter (voir bug provider dans prowlarr.tf)."
   default     = ""
 }

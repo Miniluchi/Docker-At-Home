@@ -29,11 +29,18 @@ telegram_chat_id   = "REMPLACER_PAR_LE_CHAT_ID"
 # Profils de qualité.
 radarr_profile_language = "French" # "Any" pour laisser les custom formats décider
 
-# Indexeurs Prowlarr.
-ygege_url               = "http://ygege:8715/"
-ygege_indexer_name      = "Ygégé"
-prowlarr_app_profile_id = 1
-prowlarr_sync_level     = "fullSync"
+# Indexeurs Prowlarr (structure : indexers.tf).
+prowlarr_sync_level = "fullSync"
+
+# ID Prowlarr par indexeur (adoption par import). Serveur neuf : créer d'abord
+# les indexeurs dans Prowlarr, puis renseigner leurs ids ici.
+indexer_import_ids = {
+  generation_free    = ""
+  generation_free_fl = ""
+  nostradamus        = ""
+  torr9              = ""
+  c411               = ""
+}
 
 # IDs d'import (voir imports.tf) : vide = créé, renseigné = adopté.
 radarr_root_folder_import_id             = ""
@@ -46,4 +53,3 @@ prowlarr_application_sonarr_import_id    = ""
 prowlarr_notification_telegram_import_id = ""
 radarr_notification_telegram_import_id   = ""
 sonarr_notification_telegram_import_id   = ""
-prowlarr_indexer_ygege_import_id         = ""
