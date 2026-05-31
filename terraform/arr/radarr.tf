@@ -25,12 +25,21 @@ resource "radarr_custom_format" "fr" {
 }
 
 locals {
-  radarr_format_items = [
+  # Un format_item à score 0 n'est pas persisté par Radarr -> on l'exclut
+  # (sinon "inconsistent result": l'élément planifié n'a pas d'équivalent réel).
+  radarr_format_items_1080p = [
     for key, cf in radarr_custom_format.fr : {
       name   = cf.name
       format = cf.id
-      score  = local.custom_formats[key].score
-    }
+      score  = try(local.custom_formats[key].score_1080p, local.custom_formats[key].score)
+    } if try(local.custom_formats[key].score_1080p, local.custom_formats[key].score) != 0
+  ]
+  radarr_format_items_2160p = [
+    for key, cf in radarr_custom_format.fr : {
+      name   = cf.name
+      format = cf.id
+      score  = try(local.custom_formats[key].score_2160p, local.custom_formats[key].score)
+    } if try(local.custom_formats[key].score_2160p, local.custom_formats[key].score) != 0
   ]
 }
 
@@ -73,7 +82,7 @@ resource "radarr_quality_profile" "movies_1080p" {
     { qualities = [data.radarr_quality.remux_1080p] },
   ]
 
-  format_items = local.radarr_format_items
+  format_items = local.radarr_format_items_1080p
 }
 
 resource "radarr_quality_profile" "movies_2160p" {
@@ -97,7 +106,7 @@ resource "radarr_quality_profile" "movies_2160p" {
     { qualities = [data.radarr_quality.remux_2160p] },
   ]
 
-  format_items = local.radarr_format_items
+  format_items = local.radarr_format_items_2160p
 }
 
 # Media management + naming : valeurs recommandées TRASH.
