@@ -14,7 +14,6 @@ locals {
     prowlarr_notif_telegram  = var.prowlarr_notification_telegram_import_id
     radarr_notif_telegram    = var.radarr_notification_telegram_import_id
     sonarr_notif_telegram    = var.sonarr_notification_telegram_import_id
-    prowlarr_indexer_ygege   = var.prowlarr_indexer_ygege_import_id
   }
 }
 
@@ -78,8 +77,9 @@ import {
   id       = each.value
 }
 
+# Indexeurs : un import par entrée non vide de indexer_import_ids.
 import {
-  for_each = local.import_ids.prowlarr_indexer_ygege != "" ? toset([local.import_ids.prowlarr_indexer_ygege]) : toset([])
-  to       = prowlarr_indexer.ygege
+  for_each = { for k, id in var.indexer_import_ids : k => id if id != "" }
+  to       = prowlarr_indexer.this[each.key]
   id       = each.value
 }
