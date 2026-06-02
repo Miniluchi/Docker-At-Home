@@ -61,7 +61,7 @@ resource "sonarr_quality_profile" "series_1080p" {
   upgrade_allowed     = true
   cutoff              = data.sonarr_quality.bluray_1080p.id
   min_format_score    = 50
-  cutoff_format_score = 175
+  cutoff_format_score = 110
 
   quality_groups = [
     { qualities = [data.sonarr_quality.hdtv_1080p] },
@@ -85,7 +85,7 @@ resource "sonarr_quality_profile" "series_2160p" {
   upgrade_allowed     = true
   cutoff              = data.sonarr_quality.bluray_2160p.id
   min_format_score    = 50
-  cutoff_format_score = 175
+  cutoff_format_score = 110
 
   quality_groups = [
     { qualities = [data.sonarr_quality.hdtv_2160p] },
