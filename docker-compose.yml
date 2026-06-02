@@ -379,6 +379,7 @@ services:
     volumes:
       - qbittorrent_config:/config
       - ${MEDIA_PATH}:/data
+      - ./qbittorrent-dracula:/dracula-webui:ro
     profiles:
       - media
       - all
