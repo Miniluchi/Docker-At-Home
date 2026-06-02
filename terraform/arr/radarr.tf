@@ -66,7 +66,7 @@ resource "radarr_quality_profile" "movies_1080p" {
   upgrade_allowed     = true
   cutoff              = data.radarr_quality.bluray_1080p.id
   min_format_score    = 50
-  cutoff_format_score = 175
+  cutoff_format_score = 110
   language            = data.radarr_language.profile
 
   quality_groups = [
@@ -91,7 +91,7 @@ resource "radarr_quality_profile" "movies_2160p" {
   upgrade_allowed     = true
   cutoff              = data.radarr_quality.bluray_2160p.id
   min_format_score    = 50
-  cutoff_format_score = 175
+  cutoff_format_score = 110
   language            = data.radarr_language.profile
 
   quality_groups = [

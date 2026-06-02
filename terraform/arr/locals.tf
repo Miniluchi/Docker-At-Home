@@ -1,6 +1,5 @@
 # Custom formats partagés Radarr/Sonarr (ReleaseTitleSpecification, '\b' -> '\\b').
-# Langue FR favorisée, VOSTFR/VFQ + unwanted bloqués (-10000). HDR/DV + audio :
-# bonus faibles et bornés (pire cas non-FR 2160p DV+HDR+audio = 49 < min_format_score 50).
+# Langue FR favorisée ; VOSTFR/VFQ + unwanted bloqués (-10000).
 # Audio : Atmos `negate` dans les variantes non-Atmos pour ne pas cumuler les scores.
 # `score` = 2 profils ; `score_1080p`/`score_2160p` surchargent par résolution.
 locals {
@@ -77,6 +76,19 @@ locals {
       }]
     }
 
+    # -10000 si aucun tag FR (`negate` = matche quand la regex ne matche PAS).
+    not_french = {
+      name  = "Not French"
+      score = -10000
+      specifications = [{
+        name           = "Aucun tag FR"
+        implementation = "ReleaseTitleSpecification"
+        negate         = true
+        required       = true
+        value          = "\\b(MULTi|TRUEFRENCH|FRENCH|VFF|VF2|VFI|VFQ)\\b"
+      }]
+    }
+
     br_disk = {
       name  = "BR-DISK"
       score = -10000
@@ -127,21 +139,22 @@ locals {
       }]
     }
 
+    # Regex large (HDR10 inclus) ; HDR10+ cumule son bonus -> HDR10+ (23) > HDR (8).
     hdr = {
       name  = "HDR"
-      score = 15
+      score = 8
       specifications = [{
         name           = "HDR"
         implementation = "ReleaseTitleSpecification"
         negate         = false
         required       = true
-        value          = "\\b(HDR|PQ|HLG)\\b"
+        value          = "\\b(HDR|HDR10|PQ|HLG)\\b"
       }]
     }
 
     hdr10plus = {
       name  = "HDR10+"
-      score = 8
+      score = 15
       specifications = [{
         name           = "HDR10+"
         implementation = "ReleaseTitleSpecification"
