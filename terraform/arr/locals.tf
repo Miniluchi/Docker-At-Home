@@ -76,19 +76,6 @@ locals {
       }]
     }
 
-    # -10000 si aucun tag FR (`negate` = matche quand la regex ne matche PAS).
-    not_french = {
-      name  = "Not French"
-      score = -10000
-      specifications = [{
-        name           = "Aucun tag FR"
-        implementation = "ReleaseTitleSpecification"
-        negate         = true
-        required       = true
-        value          = "\\b(MULTi|TRUEFRENCH|FRENCH|VFF|VF2|VFI|VFQ)\\b"
-      }]
-    }
-
     br_disk = {
       name  = "BR-DISK"
       score = -10000
