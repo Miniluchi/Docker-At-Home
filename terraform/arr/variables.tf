@@ -124,6 +124,14 @@ variable "prowlarr_sync_level" {
   default     = "fullSync"
 }
 
+# Plancher de seeders du profil Leak (Ygégé) pour grabber. 2 écarte les releases
+# à seeder unique (relais u2p flaky) sans assécher le catalogue. Voir sync_profile.tf.
+variable "ygege_minimum_seeders" {
+  type        = number
+  description = "Minimum de seeders du profil Leak (Ygégé) pour grabber."
+  default     = 2
+}
+
 # IDs d'import (voir imports.tf). Vide => ressource créée ;
 # renseigné => ressource existante adoptée. Serveur neuf : tout laisser vide.
 variable "radarr_root_folder_import_id" {
