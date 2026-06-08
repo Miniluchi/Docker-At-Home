@@ -22,7 +22,7 @@ resource "prowlarr_indexer" "this" {
   implementation  = "Cardigann"
   config_contract = "CardigannSettings"
   protocol        = "torrent"
-  app_profile_id  = 1
+  app_profile_id  = each.key == "ygege" ? prowlarr_sync_profile.leak.id : prowlarr_sync_profile.standard.id
   priority        = each.value.priority
 
   fields = [
