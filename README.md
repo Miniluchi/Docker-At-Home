@@ -159,7 +159,21 @@ The Traefik middlewares all point at the embedded outpost:
 http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
 ```
 
-> **Arr services**: Radarr, Sonarr and Prowlarr have their internal auth disabled (`<AuthenticationMethod>External</AuthenticationMethod>` in `config.xml`) and rely entirely on Authentik. If Authentik is down they are **unreachable** (502/503) but **secured**.
+> **Arr services**: Radarr, Sonarr and Prowlarr have their internal auth disabled (`<AuthenticationMethod>External</AuthenticationMethod>` in `config.xml`) and rely entirely on Authentik for their **web UI**. If Authentik is down the UI is **unreachable** (502/503) but **secured**.
+
+### API routes outside Authentik
+
+For native API clients (Prowlarr ↔ Arr sync, Jellyseerr, Helmarr-style tooling, Terraform, …), the Forward Auth would block the request since it carries an API key, not an Authentik session. A dedicated higher-priority router therefore exposes the API path of each service **bypassing Authentik** (CrowdSec is still applied):
+
+| Service     | Router            | Rule                                      | Auth on the API                  |
+| ----------- | ----------------- | ----------------------------------------- | -------------------------------- |
+| Radarr      | `radarr-api`      | `Host(radarr.…) && PathPrefix(/api)`      | `X-Api-Key`                      |
+| Sonarr      | `sonarr-api`      | `Host(sonarr.…) && PathPrefix(/api)`      | `X-Api-Key`                      |
+| Prowlarr    | `prowlarr-api`    | `Host(prowlarr.…) && PathPrefix(/api)`    | `X-Api-Key`                      |
+| qBittorrent | `qbittorrent-api` | `Host(qbt.…) && PathPrefix(/api/v2)`      | qBittorrent WebUI auth (re-enabled) |
+| Jellystat   | `jellystat-api`   | `Host(jellystat.…) && PathPrefix(/api)`   | `x-api-token`                    |
+
+> These routers use `priority=100` so the `/api` prefix wins over the catch-all UI router. The API stays reachable even when Authentik is down — each service authenticates the request itself (API key / token). For qBittorrent this requires its WebUI auth to be **re-enabled** (it is no longer fronted by Authentik on `/api/v2`).
 
 ### Native OIDC
 
@@ -192,7 +206,14 @@ In Portainer → **Settings → Authentication → OAuth**:
 
 ## 🧬 Infrastructure as Code (Terraform)
 
-The Authentik configuration is managed as code under `terraform/authentik/` (provider `goauthentik/authentik`), so it is reproducible across servers.
+Two independent Terraform modules under `terraform/` keep the stack reproducible across servers:
+
+- `terraform/authentik/` — Authentik SSO (provider `goauthentik/authentik`)
+- `terraform/arr/` — Radarr / Sonarr / Prowlarr configuration (providers `devopsarr/{radarr,sonarr,prowlarr}`)
+
+### `terraform/authentik/`
+
+The Authentik configuration is managed as code (provider `goauthentik/authentik`).
 
 | File                                               | Purpose                                                                                                                                                                         |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -216,12 +237,41 @@ terraform apply
 
 > After `apply`, add your user to the relevant **`<service>-access`** groups — otherwise Forward Auth will deny access since the policy binding requires group membership.
 
+### `terraform/arr/`
+
+This module codifies the Radarr / Sonarr / Prowlarr configuration (quality settings, indexers, download clients, notifications) so a fresh server lands on the same tuned setup. It talks to each service over its **internal** URL (container name on `traefik_net`) authenticated by API key, never the public Traefik URL. Requires **Terraform ≥ 1.7** (conditional `import` blocks with `for_each`).
+
+| File                     | Purpose                                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `providers.tf`, `variables.tf`, `terraform.tfvars` | Providers + connection (URLs, API keys, qBittorrent, Telegram, paths)                                                               |
+| `locals.tf`              | Shared TRaSH-style **custom formats** (FR language favoured: MULTi/TRUEFRENCH/FRENCH; VOSTFR/VFQ/unwanted blocked) with per-resolution scores (1080p / 2160p) |
+| `radarr.tf`, `sonarr.tf` | Root folder, qBittorrent download client, custom formats, quality profiles, recycle bin                                                                       |
+| `prowlarr.tf`            | qBittorrent download client, Radarr/Sonarr applications (category sync), Telegram notification                                                                 |
+| `indexers.tf`            | Prowlarr Cardigann indexers (Ygégé, Generation-Free, Nostradamus, Torr9, C411) — created in Prowlarr then **adopted by import**                                |
+| `sync_profile.tf`        | Prowlarr sync profiles with a per-indexer **minimum-seeders floor** (Ygégé/Leak = 2)                                                                           |
+| `quality_definitions.tf` | TRaSH quality sizes (`min_size = 0` so size never blocks; custom formats do the filtering)                                                                     |
+| `imports.tf`             | Conditional imports — empty `*_import_id` ⇒ resource **created** (fresh server); set ⇒ existing Arr config **adopted**                                          |
+
+**Usage**:
+
+```bash
+cd terraform/arr
+cp terraform.tfvars.example terraform.tfvars
+# fill in API keys (config.xml -> <ApiKey>), qBittorrent + Telegram creds, paths
+terraform init
+terraform plan
+terraform apply
+```
+
+> **Adopting an existing setup**: on a server where Radarr/Sonarr/Prowlarr are already configured, fill the `*_import_id` / `indexer_import_ids` values in `terraform.tfvars` so Terraform adopts the existing resources instead of creating duplicates. Leave them empty on a fresh server.
+
 ## 🔒 Security notes
 
 - ✅ Centralised authentication, unified users/groups, native 2FA/MFA, centralised auth logs
 - ✅ CrowdSec + Traefik bouncer block malicious IPs at the edge
-- ⚠️ **Single point of failure**: if Authentik is down, every Forward Auth / OIDC service becomes inaccessible
-- ⚠️ Arr services (`AuthenticationMethod=External`) have **no protection of their own** without Authentik
+- ⚠️ **Single point of failure**: if Authentik is down, every Forward Auth / OIDC **web UI** becomes inaccessible (the `/api` routes stay up — see below)
+- ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have **no protection of their own** without Authentik
+- ⚠️ The `/api` routes (Radarr, Sonarr, Prowlarr, qBittorrent, Jellystat) **bypass Authentik** and are guarded only by CrowdSec + the service's own API key / token. Keep those keys secret and qBittorrent's WebUI auth enabled.
 
 **Recommendations**:
 
