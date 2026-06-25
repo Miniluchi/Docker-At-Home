@@ -33,12 +33,12 @@
         description: Streaming video
         server: my-docker
         container: jellyfin
-    - Jellyseerr:
-        href: https://jellyseerr.{{HOMEPAGE_VAR_DOMAIN}}
+    - Seerr:
+        href: https://seerr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: jellyseerr.png
         description: Demandes de medias
         server: my-docker
-        container: jellyseerr
+        container: seerr
     - Prowlarr:
         href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
         icon: prowlarr.png
