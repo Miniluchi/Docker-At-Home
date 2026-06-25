@@ -96,7 +96,7 @@ docker compose --profile media restart
 - **Prowlarr** — Indexer manager for Radarr/Sonarr
 - **qBittorrent** — Torrent client with web UI; all traffic routed through the Gluetun VPN
 - **Gluetun** — VPN client (WireGuard) tunnelling qBittorrent traffic
-- **Gluetun-Watchdog** — Restarts qBittorrent if the VPN tunnel drops
+- **gluetun-qbt-watchdog** — Syncs Gluetun's forwarded port into qBittorrent and restarts qBittorrent when the VPN tunnel drops ([brunoorsolon/gluetun-qbt-watchdog](https://github.com/brunoorsolon/gluetun-qbt-watchdog))
 - **Jellystat** — Usage statistics dashboard for Jellyfin (dedicated PostgreSQL)
 - **Ygège** — YGGtorrent indexer proxy (consumed by Prowlarr)
 
