@@ -1,10 +1,9 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, OMV-Proxy, Portainer, Authentik, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Portainer, Authentik, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, Jellystat, Ygège)
 # - devtools       : Developer tools (SonarQube, Authentik)
-# - domotique      : Home automation (Home Assistant with Zigbee support)
 # - security       : Security (CrowdSec + Traefik bouncer)
 # - tools          : Tools (RSSHub, FreshRSS)
 # - all            : All services
@@ -37,7 +36,7 @@ services:
     command:
       - "--api.dashboard=false"
       - "--providers.docker=true"
-      - "--log.level=DEBUG"
+      - "--log.level=INFO"
       - "--ping=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
@@ -72,38 +71,6 @@ services:
     labels:
       - "traefik.enable=true"
       # Middleware crowdsec-bouncer défini dans traefik-dynamic.yml (file provider)
-    profiles:
-      - infrastructure
-      - all
-
-  # Proxy pour OpenMediaVault (permet l'accès via Traefik)
-  omv-proxy:
-    image: nginx:alpine
-    container_name: omv-proxy
-    restart: "on-failure:2"
-    mem_limit: 32m
-    memswap_limit: 32m
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    volumes:
-      - ./nginx-omv.conf:/etc/nginx/nginx.conf:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.omv.rule=Host(`omv.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.omv.entrypoints=websecure"
-      - "traefik.http.routers.omv.tls=true"
-      - "traefik.http.routers.omv.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.omv.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.omv.middlewares=crowdsec-bouncer@file,authentik-omv@docker"
-      - "traefik.http.middlewares.authentik-omv.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-omv.forwardauth.trustForwardHeader=true"
-    environment:
-      - TZ=${TZ}
     profiles:
       - infrastructure
       - all
@@ -681,48 +648,6 @@ services:
       - media
       - all
 
-  # Home Assistant
-  homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
-    container_name: homeassistant
-    restart: "on-failure:2"
-    network_mode: host
-    mem_limit: 512m
-    memswap_limit: 512m
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget --no-verbose --tries=1 --spider http://127.0.0.1:8123/ || exit 1",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    volumes:
-      - homeassistant_config:/config
-      - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro
-    environment:
-      - TZ=${TZ}
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    devices:
-      - ${ZIGBEE_DONGLE_PATH}:/dev/ttyUSB0
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.homeassistant.rule=Host(`home.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.homeassistant.entrypoints=websecure"
-      - "traefik.http.routers.homeassistant.tls=true"
-      - "traefik.http.routers.homeassistant.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.homeassistant.loadbalancer.server.url=http://host.docker.internal:8123"
-      # CrowdSec protection
-      - "traefik.http.routers.homeassistant.middlewares=crowdsec-bouncer@file"
-    profiles:
-      - domotique
-      - all
-
   # PostgreSQL Authentik - Base de données dédiée
   authentik-db:
     image: postgres:16-alpine
@@ -981,6 +906,8 @@ services:
       - /var/log/auth.log:/var/log/auth.log:ro
       # Docker socket pour lire les logs des conteneurs
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=false"
     networks:
       - traefik_net
     profiles:
@@ -1023,9 +950,6 @@ volumes:
 
   # Prowlarr
   prowlarr_config:
-
-  # Home Assistant
-  homeassistant_config:
 
   # Authentik
   postgres_authentik_data:
