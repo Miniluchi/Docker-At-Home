@@ -1,4 +1,22 @@
 http:
+  routers:
+    # Jellyfin natif (transcodage matériel)
+    jellyfin:
+      rule: "Host(`jellyfin.{{ env "DOMAIN_BASE" }}`)"
+      entryPoints:
+        - websecure
+      service: jellyfin
+      middlewares:
+        - crowdsec-bouncer
+      tls:
+        certResolver: letsEncrypt
+
+  services:
+    jellyfin:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8096"
+
   middlewares:
     crowdsec-bouncer:
       plugin:

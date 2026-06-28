@@ -28,6 +28,7 @@ services:
     environment:
       - TZ=${TZ}
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
+      - DOMAIN_BASE=${DOMAIN_BASE}
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -151,53 +152,7 @@ services:
       - media
       - all
 
-  # Jellyfin - Media Server
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    restart: "on-failure:2"
-    mem_limit: 2g
-    memswap_limit: 2g
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    environment:
-      - TZ=${TZ}
-      - JELLYFIN_PublishedServerUrl=https://jellyfin.${DOMAIN_BASE}
-    user: "${PUID}:${PGID}"
-    volumes:
-      - jellyfin_config:/config
-      - ${MEDIA_PATH}:/data
-      - jellyfin_cache:/cache
-    devices:
-      - /dev/dri/renderD128:/dev/dri/renderD128 # GPU render device (principal)
-      - /dev/dri/card0:/dev/dri/card0 # GPU card 0
-      - /dev/dri/card1:/dev/dri/card1 # GPU card 1
-      - /dev/video19:/dev/video19 # HEVC/H265 decoder
-    group_add:
-      - "44" # video group
-      - "109" # render group
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.jellyfin.rule=Host(`jellyfin.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.jellyfin.entrypoints=websecure"
-      - "traefik.http.routers.jellyfin.tls=true"
-      - "traefik.http.routers.jellyfin.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
-      - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.jellyfin.middlewares=crowdsec-bouncer@file"
-    profiles:
-      - media
-      - all
+  # Jellyfin tourne nativement (transcodage matériel) ; routage dans traefik-dynamic.yml.
 
   # Radarr - Films
   radarr:
@@ -219,6 +174,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - RADARR__AUTH__METHOD=External
     volumes:
       - radarr_config:/config
       - ${MEDIA_PATH}:/data
@@ -268,6 +224,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - SONARR__AUTH__METHOD=External
     volumes:
       - sonarr_config:/config
       - ${MEDIA_PATH}:/data
@@ -311,8 +268,10 @@ services:
     environment:
       - TZ=${TZ}
       - VPN_SERVICE_PROVIDER=protonvpn
-      - VPN_TYPE=wireguard
-      - WIREGUARD_PRIVATE_KEY=${GLUETUN_WG_PRIVATE_KEY}
+      # OpenVPN : port forwardé ProtonVPN stable (en WireGuard il tourne toutes les ~90s, cf. gluetun#3196)
+      - VPN_TYPE=openvpn
+      - OPENVPN_USER=${PROTON_OPENVPN_USER}
+      - OPENVPN_PASSWORD=${PROTON_OPENVPN_PASSWORD}
       - SERVER_COUNTRIES=Netherlands
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
@@ -320,7 +279,6 @@ services:
       # Sync du port forwardé délégué à gluetun-qbt-watchdog (remplace l'ancien VPN_PORT_FORWARDING_UP_COMMAND)
       # Control server : routes privées par défaut depuis gluetun v3.40 → auth par clé API pour le watchdog
       - 'HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE={"auth":"apikey","apikey":"${GLUETUN_API_KEY}"}'
-      - WIREGUARD_IMPLEMENTATION=kernelspace
     networks:
       - traefik_net
     labels:
@@ -427,6 +385,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - PROWLARR__AUTH__METHOD=External
     volumes:
       - prowlarr_config:/config
       - ./ygege.yml:/config/Definitions/Custom/ygege.yml:ro
@@ -934,10 +893,6 @@ volumes:
 
   # Seerr
   seerr_config:
-
-  # Jellyfin
-  jellyfin_config:
-  jellyfin_cache:
 
   # Radarr
   radarr_config:
