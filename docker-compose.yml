@@ -159,8 +159,8 @@ services:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
     restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
+    mem_limit: 512m
+    memswap_limit: 512m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -209,8 +209,8 @@ services:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
+    mem_limit: 512m
+    memswap_limit: 512m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -342,6 +342,18 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     memswap_limit: 64m
+    # Pas de healthcheck natif : en mode password le script réécrit /tmp/qbt_login_response.txt
+    # à chaque cycle (30s) → on en vérifie la fraîcheur (< 5 min) pour détecter une boucle figée.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "test $(( $(date +%s) - $(stat -c %Y /tmp/qbt_login_response.txt 2>/dev/null || echo 0) )) -lt 300",
+        ]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     depends_on:
       - gluetun
       - qbittorrent
@@ -370,8 +382,8 @@ services:
     image: lscr.io/linuxserver/prowlarr:latest
     container_name: prowlarr
     restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
+    mem_limit: 384m
+    memswap_limit: 384m
     depends_on:
       authentik-server:
         condition: service_healthy
@@ -487,8 +499,8 @@ services:
       - "traefik.http.routers.jellystat.middlewares=crowdsec-bouncer@file,authentik-jellystat@docker"
       - "traefik.http.middlewares.authentik-jellystat.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-jellystat.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
+      # API + proxy hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr — CrowdSec conservé
+      - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.${DOMAIN_BASE}`) && (PathPrefix(`/api`) || PathPrefix(`/proxy`))"
       - "traefik.http.routers.jellystat-api.entrypoints=websecure"
       - "traefik.http.routers.jellystat-api.tls=true"
       - "traefik.http.routers.jellystat-api.tls.certresolver=letsEncrypt"
