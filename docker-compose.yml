@@ -703,6 +703,9 @@ services:
         condition: service_healthy
     networks:
       - traefik_net
+    extra_hosts:
+      # Widget Glances : Glances tourne nativement sur l'hôte (port 61208)
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./homepage-settings/services.yaml:/app/config/services.yaml
       - ./homepage-settings/settings.yaml:/app/config/settings.yaml
@@ -812,38 +815,6 @@ services:
       - traefik_net
     profiles:
       - devtools
-      - all
-
-  # Glances - Monitoring
-  glances:
-    image: nicolargo/glances:latest
-    container_name: glances
-    restart: "on-failure:2"
-    pid: host
-    mem_limit: 128m
-    memswap_limit: 128m
-    networks:
-      - traefik_net
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /etc/os-release:/etc/os-release:ro
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-    environment:
-      - TZ=${TZ}
-      - GLANCES_OPT=-w
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.glances.rule=Host(`glances.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.glances.entrypoints=websecure"
-      - "traefik.http.routers.glances.tls=true"
-      - "traefik.http.routers.glances.tls.certresolver=letsEncrypt"
-      - "traefik.http.services.glances.loadbalancer.server.port=61208"
-      - "traefik.docker.network=traefik_net"
-      - "traefik.http.routers.glances.middlewares=crowdsec-bouncer@file,authentik-glances@docker"
-      - "traefik.http.middlewares.authentik-glances.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-glances.forwardauth.trustForwardHeader=true"
-    profiles:
-      - infrastructure
       - all
 
   # CrowdSec - Security Engine (IPS collaboratif)

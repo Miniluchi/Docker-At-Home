@@ -75,8 +75,6 @@
         href: https://glances.{{HOMEPAGE_VAR_DOMAIN}}
         icon: glances.png
         description: Monitoring systeme
-        server: my-docker
-        container: glances
 
 - Automatisation:
     - Home Assistant:
@@ -116,7 +114,7 @@
     - CPU:
         widget:
           type: glances
-          url: http://glances:61208
+          url: http://host.docker.internal:61208
           version: 4
           metric: cpu
           chart: true
@@ -125,7 +123,7 @@
     - Memory:
         widget:
           type: glances
-          url: http://glances:61208
+          url: http://host.docker.internal:61208
           version: 4
           metric: memory
           chart: true

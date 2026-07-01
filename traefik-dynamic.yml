@@ -11,13 +11,36 @@ http:
       tls:
         certResolver: letsEncrypt
 
+    # Glances natif (monitoring de l'hôte macOS)
+    glances:
+      rule: "Host(`glances.{{ env "DOMAIN_BASE" }}`)"
+      entryPoints:
+        - websecure
+      service: glances
+      middlewares:
+        - crowdsec-bouncer
+        - authentik-glances
+      tls:
+        certResolver: letsEncrypt
+
   services:
     jellyfin:
       loadBalancer:
         servers:
           - url: "http://host.docker.internal:8096"
 
+    glances:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:61208"
+
   middlewares:
+    # Authentik forward-auth (SSO) pour Glances natif
+    authentik-glances:
+      forwardAuth:
+        address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+        trustForwardHeader: true
+
     crowdsec-bouncer:
       plugin:
         bouncer:
