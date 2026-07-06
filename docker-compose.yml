@@ -29,6 +29,12 @@ services:
       - TZ=${TZ}
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
       - DOMAIN_BASE=${DOMAIN_BASE}
+      # ACME DNS-01 via OVH (lego) — permet le wildcard *.lan.${DOMAIN_BASE} et
+      # supprime la dépendance au challenge HTTP sur :80
+      - OVH_ENDPOINT=${OVH_ENDPOINT}
+      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
+      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
+      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -41,7 +47,8 @@ services:
       - "--ping=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.letsEncrypt.acme.httpChallenge.entryPoint=web"
+      - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.provider=ovh"
+      - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
       - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
       - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
@@ -76,6 +83,52 @@ services:
       - infrastructure
       - all
 
+  # Tailscale - nœud tailnet "dah-proxy" (accès privé aux services *.lan.${DOMAIN_BASE})
+  # Sidecar dans le netns de Traefik : l'IP tailnet 100.x du nœud expose directement
+  # Traefik :443 aux devices du tailnet (routage host-based inchangé).
+  # TS_USERSPACE=false requis : le mode userspace (défaut) ne délivre pas le trafic
+  # entrant sans `tailscale serve` — le kernel networking (tun) le fait nativement.
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    network_mode: "service:traefik"
+    depends_on:
+      traefik:
+        condition: service_started
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - TZ=${TZ}
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_HOSTNAME=dah-proxy
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+      # Ne pas se ré-authentifier à chaque restart (l'état persiste dans le volume)
+      - TS_AUTH_ONCE=true
+      # Ne PAS accepter le DNS MagicDNS : le netns est partagé avec Traefik,
+      # qui doit continuer de résoudre les noms de conteneurs via le DNS Docker.
+      - TS_ACCEPT_DNS=false
+      # Healthcheck natif (v1.78+) : /healthz répond 200 si le nœud a une IP tailnet
+      - TS_ENABLE_HEALTH_CHECK=true
+      - TS_LOCAL_ADDR_PORT=127.0.0.1:9002
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9002/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - dah_proxy_state:/var/lib/tailscale
+    profiles:
+      - infrastructure
+      - all
+
   # Homarr - Dashboard
   # Portainer - Container Management
   portainer:
@@ -91,14 +144,14 @@ services:
       - portainer_data:/data
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
       - "traefik.http.routers.portainer.tls=true"
       - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.portainer.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.portainer.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.portainer.middlewares=crowdsec-bouncer@file"
     security_opt:
       - no-new-privileges:true
     environment:
@@ -182,24 +235,27 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.radarr.rule=Host(`radarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.radarr.rule=Host(`radarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.radarr.entrypoints=websecure"
       - "traefik.http.routers.radarr.tls=true"
       - "traefik.http.routers.radarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.radarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.radarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.radarr.middlewares=crowdsec-bouncer@file,authentik-radarr@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.radarr.middlewares=authentik-radarr@docker"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.radarr-api.rule=Host(`radarr.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
+      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.radarr-api.rule=Host(`radarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.radarr-api.entrypoints=websecure"
       - "traefik.http.routers.radarr-api.tls=true"
       - "traefik.http.routers.radarr-api.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.radarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.radarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.radarr-api.service=radarr"
       - "traefik.http.routers.radarr-api.priority=100"
-      - "traefik.http.routers.radarr-api.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -232,24 +288,27 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sonarr.rule=Host(`sonarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.sonarr.rule=Host(`sonarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.sonarr.entrypoints=websecure"
       - "traefik.http.routers.sonarr.tls=true"
       - "traefik.http.routers.sonarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.sonarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.sonarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.sonarr.middlewares=crowdsec-bouncer@file,authentik-sonarr@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.sonarr.middlewares=authentik-sonarr@docker"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.sonarr-api.rule=Host(`sonarr.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
+      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.sonarr-api.rule=Host(`sonarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.sonarr-api.entrypoints=websecure"
       - "traefik.http.routers.sonarr-api.tls=true"
       - "traefik.http.routers.sonarr-api.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.sonarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.sonarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.sonarr-api.service=sonarr"
       - "traefik.http.routers.sonarr-api.priority=100"
-      - "traefik.http.routers.sonarr-api.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -283,24 +342,27 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.qbittorrent.entrypoints=websecure"
       - "traefik.http.routers.qbittorrent.tls=true"
       - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.qbittorrent.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.qbittorrent.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.qbittorrent.middlewares=crowdsec-bouncer@file,authentik-qbittorrent@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.qbittorrent.middlewares=authentik-qbittorrent@docker"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth WebUI qBittorrent réactivée) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.qbittorrent-api.rule=Host(`qbt.${DOMAIN_BASE}`) && PathPrefix(`/api/v2`)"
+      # API hors Authentik (auth WebUI qBittorrent réactivée) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.qbittorrent-api.rule=Host(`qbt.lan.${DOMAIN_BASE}`) && PathPrefix(`/api/v2`)"
       - "traefik.http.routers.qbittorrent-api.entrypoints=websecure"
       - "traefik.http.routers.qbittorrent-api.tls=true"
       - "traefik.http.routers.qbittorrent-api.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.qbittorrent-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.qbittorrent-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.qbittorrent-api.service=qbittorrent"
       - "traefik.http.routers.qbittorrent-api.priority=100"
-      - "traefik.http.routers.qbittorrent-api.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -409,24 +471,27 @@ services:
       - 9.9.9.9
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
       - "traefik.http.routers.prowlarr.tls=true"
       - "traefik.http.routers.prowlarr.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.prowlarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.prowlarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.prowlarr.middlewares=crowdsec-bouncer@file,authentik-prowlarr@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.prowlarr.middlewares=authentik-prowlarr@docker"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.prowlarr-api.rule=Host(`prowlarr.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
+      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.prowlarr-api.rule=Host(`prowlarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.prowlarr-api.entrypoints=websecure"
       - "traefik.http.routers.prowlarr-api.tls=true"
       - "traefik.http.routers.prowlarr-api.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.prowlarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.prowlarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.prowlarr-api.service=prowlarr"
       - "traefik.http.routers.prowlarr-api.priority=100"
-      - "traefik.http.routers.prowlarr-api.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -489,24 +554,27 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.jellystat.rule=Host(`jellystat.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.jellystat.rule=Host(`jellystat.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.jellystat.entrypoints=websecure"
       - "traefik.http.routers.jellystat.tls=true"
       - "traefik.http.routers.jellystat.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.jellystat.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.jellystat.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.jellystat.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.jellystat.middlewares=crowdsec-bouncer@file,authentik-jellystat@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.jellystat.middlewares=authentik-jellystat@docker"
       - "traefik.http.middlewares.authentik-jellystat.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-jellystat.forwardauth.trustForwardHeader=true"
-      # API + proxy hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr — CrowdSec conservé
-      - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.${DOMAIN_BASE}`) && (PathPrefix(`/api`) || PathPrefix(`/proxy`))"
+      # API + proxy hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.lan.${DOMAIN_BASE}`) && (PathPrefix(`/api`) || PathPrefix(`/proxy`))"
       - "traefik.http.routers.jellystat-api.entrypoints=websecure"
       - "traefik.http.routers.jellystat-api.tls=true"
       - "traefik.http.routers.jellystat-api.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.jellystat-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.jellystat-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.jellystat-api.service=jellystat"
       - "traefik.http.routers.jellystat-api.priority=100"
-      - "traefik.http.routers.jellystat-api.middlewares=crowdsec-bouncer@file"
     profiles:
       - media
       - all
@@ -534,14 +602,14 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.rsshub.rule=Host(`rsshub.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.rsshub.rule=Host(`rsshub.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.rsshub.entrypoints=websecure"
       - "traefik.http.routers.rsshub.tls=true"
       - "traefik.http.routers.rsshub.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.rsshub.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.rsshub.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.rsshub.middlewares=crowdsec-bouncer@file"
     profiles:
       - tools
       - all
@@ -587,7 +655,7 @@ services:
       - "traefik.http.routers.freshrss.tls.certresolver=letsEncrypt"
       - "traefik.http.services.freshrss.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
+      # Public : CrowdSec (OIDC géré directement par FreshRSS)
       - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@file"
     profiles:
       - tools
@@ -716,20 +784,24 @@ services:
       - ${MEDIA_PATH}:/mnt/media:ro
     environment:
       - TZ=${TZ}
-      - HOMEPAGE_ALLOWED_HOSTS=${DOMAIN_BASE}
+      - HOMEPAGE_ALLOWED_HOSTS=lan.${DOMAIN_BASE}
+      # Domaine public (liens jellyfin/seerr/auth) et zone privée tailnet (le reste)
       - HOMEPAGE_VAR_DOMAIN=${DOMAIN_BASE}
+      - HOMEPAGE_VAR_PRIVATE_DOMAIN=lan.${DOMAIN_BASE}
       - HOMEPAGE_VAR_RADARR_API_KEY=${RADARR_API_KEY}
       - HOMEPAGE_VAR_SONARR_API_KEY=${SONARR_API_KEY}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.homepage.rule=Host(`${DOMAIN_BASE}`)"
+      - "traefik.http.routers.homepage.rule=Host(`lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.homepage.entrypoints=websecure"
       - "traefik.http.routers.homepage.tls=true"
       - "traefik.http.routers.homepage.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.homepage.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.homepage.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec + Authentik SSO via Proxy
-      - "traefik.http.routers.homepage.middlewares=crowdsec-bouncer@file,authentik-homepage@docker"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
       - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
     profiles:
@@ -750,10 +822,11 @@ services:
       authentik-server:
         condition: service_healthy
     healthcheck:
+      # L'image sonarqube:community n'embarque pas wget, seulement curl
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://localhost:9000/api/system/status || exit 1",
+          "curl -sf http://localhost:9000/api/system/status || exit 1",
         ]
       interval: 30s
       timeout: 10s
@@ -775,14 +848,14 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
       - "traefik.http.routers.sonarqube.tls=true"
       - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.sonarqube.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.sonarqube.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@file"
     profiles:
       - devtools
       - all
@@ -867,6 +940,9 @@ volumes:
   traefik_letsencrypt:
   traefik_config:
   traefik_logs:
+
+  # Tailscale (état du nœud dah-proxy — doit persister pour garder l'identité)
+  dah_proxy_state:
 
   # Homepage
   homepage_config:
