@@ -7,10 +7,12 @@ resource "authentik_provider_oauth2" "portainer" {
   invalidation_flow  = data.authentik_flow.default_invalidation.id
   property_mappings  = data.authentik_property_mapping_provider_scope.oidc_default.ids
 
+  # Portainer est servi sur la zone privée tailnet ; les endpoints OAuth restent
+  # sur auth.<domain_base> (public), seule la redirect URI change.
   allowed_redirect_uris = [
     {
       matching_mode = "strict"
-      url           = "https://portainer.${var.domain_base}/"
+      url           = "https://portainer.lan.${var.domain_base}/"
     }
   ]
 }
@@ -36,7 +38,7 @@ resource "local_sensitive_file" "portainer_env" {
     OAUTH_ACCESS_TOKEN_URL=https://auth.${var.domain_base}/application/o/token/
     OAUTH_RESOURCE_URL=https://auth.${var.domain_base}/application/o/userinfo/
     OAUTH_LOGOUT_URL=https://auth.${var.domain_base}/application/o/portainer/end-session/
-    OAUTH_REDIRECT_URL=https://portainer.${var.domain_base}/
+    OAUTH_REDIRECT_URL=https://portainer.lan.${var.domain_base}/
     OAUTH_USER_IDENTIFIER=preferred_username
     OAUTH_SCOPES=email openid profile
   EOT

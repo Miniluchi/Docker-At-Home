@@ -3,9 +3,10 @@
 # application, et binding réservant l'accès aux membres du groupe.
 
 locals {
-  # host = sous-domaine ("" = domaine racine)
+  # host = sous-domaine dans la zone privée lan.<domain_base> ("" = apex de la zone).
+  # Ces services ne sont joignables que via le tailnet (cf. docs/acces-prive-tailscale.md) ;
+  # le forward auth est conservé en défense-en-profondeur par-dessus Tailscale.
   forward_auth_services = {
-    omv         = { display = "OpenMediaVault", host = "omv" }
     radarr      = { display = "Radarr", host = "radarr" }
     sonarr      = { display = "Sonarr", host = "sonarr" }
     qbittorrent = { display = "qBittorrent", host = "qbt" }
@@ -25,7 +26,7 @@ resource "authentik_provider_proxy" "forward_auth" {
   for_each           = local.forward_auth_services
   name               = each.key
   mode               = "forward_single"
-  external_host      = each.value.host == "" ? "https://${var.domain_base}" : "https://${each.value.host}.${var.domain_base}"
+  external_host      = each.value.host == "" ? "https://lan.${var.domain_base}" : "https://${each.value.host}.lan.${var.domain_base}"
   authorization_flow = data.authentik_flow.default_authorization.id
   invalidation_flow  = data.authentik_flow.default_invalidation.id
   property_mappings  = data.authentik_property_mapping_provider_scope.oidc_default.ids
