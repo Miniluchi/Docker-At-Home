@@ -4,7 +4,7 @@
 
 - Demandes:
     - Radarr:
-        href: https://radarr.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://radarr.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: radarr.png
         description: Gestionnaire films
         server: my-docker
@@ -15,7 +15,7 @@
           key: "{{HOMEPAGE_VAR_RADARR_API_KEY}}"
           fields: ["movies", "wanted", "queued"]
     - Sonarr:
-        href: https://sonarr.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://sonarr.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: sonarr.png
         description: Gestionnaire series
         server: my-docker
@@ -40,13 +40,13 @@
         server: my-docker
         container: seerr
     - Prowlarr:
-        href: https://prowlarr.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://prowlarr.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: prowlarr.png
         description: Indexeurs
         server: my-docker
         container: prowlarr
     - qBittorrent:
-        href: https://qbt.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://qbt.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: qbittorrent.png
         description: Client torrent
         server: my-docker
@@ -54,7 +54,7 @@
 
 - Infrastructure:
     - Portainer:
-        href: https://portainer.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://portainer.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: portainer.png
         description: Gestion Docker
         server: my-docker
@@ -65,34 +65,14 @@
         description: SSO / Identity Provider
         server: my-docker
         container: authentik-server
-    - OpenMediaVault:
-        href: https://omv.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: openmediavault.png
-        description: NAS / Stockage
-        server: my-docker
-        container: omv-proxy
     - Glances:
-        href: https://glances.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://glances.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: glances.png
         description: Monitoring systeme
 
-- Automatisation:
-    - Home Assistant:
-        href: https://home.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: home-assistant.png
-        description: Domotique
-        server: my-docker
-        container: homeassistant
-
 - Outils:
-    - Planka:
-        href: https://planka.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: planka.png
-        description: Kanban / Gestion projets
-        server: my-docker
-        container: planka
     - SonarQube:
-        href: https://sonarqube.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://sonarqube.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: sonarqube.png
         description: Analyse de code
         server: my-docker
@@ -104,7 +84,7 @@
         server: my-docker
         container: freshrss
     - RSSHub:
-        href: https://rsshub.{{HOMEPAGE_VAR_DOMAIN}}
+        href: https://rsshub.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: rsshub.png
         description: Generateur de flux RSS
         server: my-docker

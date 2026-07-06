@@ -26,12 +26,9 @@ layout:
   Infrastructure:
     style: row
     columns: 2
-  Automatisation:
-    style: row
-    columns: 1
   Outils:
     style: row
-    columns: 4
+    columns: 3
   Metriques:
     style: row
     columns: 2
