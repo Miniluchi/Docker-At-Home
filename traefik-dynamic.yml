@@ -1,6 +1,6 @@
 http:
   routers:
-    # Jellyfin natif (transcodage matériel)
+    # Jellyfin natif (transcodage matériel) — public
     jellyfin:
       rule: "Host(`jellyfin.{{ env "DOMAIN_BASE" }}`)"
       entryPoints:
@@ -11,17 +11,21 @@ http:
       tls:
         certResolver: letsEncrypt
 
-    # Glances natif (monitoring de l'hôte macOS)
+    # Glances natif (monitoring de l'hôte macOS) — privé (tailnet),
+    # Authentik conservé en défense-en-profondeur, CrowdSec retiré
     glances:
-      rule: "Host(`glances.{{ env "DOMAIN_BASE" }}`)"
+      rule: "Host(`glances.lan.{{ env "DOMAIN_BASE" }}`)"
       entryPoints:
         - websecure
       service: glances
       middlewares:
-        - crowdsec-bouncer
         - authentik-glances
       tls:
         certResolver: letsEncrypt
+        domains:
+          - main: "lan.{{ env "DOMAIN_BASE" }}"
+            sans:
+              - "*.lan.{{ env "DOMAIN_BASE" }}"
 
   services:
     jellyfin:
