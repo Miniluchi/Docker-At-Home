@@ -118,7 +118,11 @@ services:
       - TS_ENABLE_HEALTH_CHECK=true
       - TS_LOCAL_ADDR_PORT=127.0.0.1:9002
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9002/healthz || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q --spider http://127.0.0.1:9002/healthz || exit 1",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
