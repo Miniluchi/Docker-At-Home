@@ -29,6 +29,7 @@ locals {
     jellystat   = { display = "Jellystat", host = "jellystat" }
     glances     = { display = "Glances", host = "glances" }
     homepage    = { display = "Homepage", host = "" }
+    changedetection = { display = "ChangeDetection", host = "changedetection" }
   }
 }
 

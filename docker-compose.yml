@@ -665,6 +665,85 @@ services:
       - tools
       - all
 
+  # IT-Tools - Boîte à outils dev (offline, 100% statique côté client)
+  it-tools:
+    image: corentinth/it-tools:latest
+    container_name: it-tools
+    restart: "on-failure:2"
+    mem_limit: 64m
+    memswap_limit: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    environment:
+      - TZ=${TZ}
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.it-tools.rule=Host(`it.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.it-tools.entrypoints=websecure"
+      - "traefik.http.routers.it-tools.tls=true"
+      - "traefik.http.routers.it-tools.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.it-tools.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.it-tools.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
+      - "traefik.http.services.it-tools.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_net"
+    profiles:
+      - tools
+      - all
+
+  # ChangeDetection.io - Surveillance de pages web + notifications au changement
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    container_name: changedetection
+    restart: "on-failure:2"
+    mem_limit: 512m
+    memswap_limit: 512m
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/',timeout=5).status < 500 else 1)\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    environment:
+      - TZ=${TZ}
+      # Base URL pour que les liens dans les notifications pointent sur le bon hôte
+      - BASE_URL=https://changedetection.lan.${DOMAIN_BASE}
+      # Décommenter + activer le sidecar navigateur ci-dessous pour les pages JS
+      # - PLAYWRIGHT_DRIVER_URL=ws://changedetection-browser:3000
+    volumes:
+      - changedetection_data:/datastore
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.changedetection.rule=Host(`changedetection.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.changedetection.entrypoints=websecure"
+      - "traefik.http.routers.changedetection.tls=true"
+      - "traefik.http.routers.changedetection.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.changedetection.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.changedetection.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
+      - "traefik.http.services.changedetection.loadbalancer.server.port=5000"
+      - "traefik.docker.network=traefik_net"
+      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.changedetection.middlewares=authentik-changedetection@docker"
+      - "traefik.http.middlewares.authentik-changedetection.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-changedetection.forwardauth.trustForwardHeader=true"
+    profiles:
+      - tools
+      - all
+
   # YGege - Nostr to Torznab Bridge
   ygege:
     image: uwucode/ygege:latest
@@ -991,3 +1070,6 @@ volumes:
   # Jellystat
   jellystat_postgres_data:
   jellystat_backup_data:
+
+  # ChangeDetection.io
+  changedetection_data:
