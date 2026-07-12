@@ -443,6 +443,32 @@ services:
       - media
       - all
 
+  # cross-seed - https://www.cross-seed.org
+  cross-seed:
+    image: ghcr.io/cross-seed/cross-seed:6
+    container_name: cross-seed
+    restart: unless-stopped
+    mem_limit: 512m
+    memswap_limit: 512m
+    user: "${PUID}:${PGID}" # cross-seed ignore PUID/PGID
+    depends_on:
+      - gluetun
+      - prowlarr
+    environment:
+      - QBT_USER=${QBT_USER}
+      - QBT_PASS=${QBT_PASS}
+      - CROSS_SEED_TORZNAB=${CROSS_SEED_TORZNAB}
+      - CROSS_SEED_APIKEY=${CROSS_SEED_APIKEY}
+    volumes:
+      - ./cross-seed:/config
+      - ${MEDIA_PATH}:/data
+    networks:
+      - traefik_net
+    command: daemon
+    profiles:
+      - media
+      - all
+
   # Prowlarr - Indexer Manager
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:latest

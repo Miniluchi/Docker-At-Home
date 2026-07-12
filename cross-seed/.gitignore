@@ -1,0 +1,5 @@
+# cross-seed : ne versionner que la config, pas les données runtime
+# (DB, torrents snatchés, logs, clé d'API générée…)
+*
+!.gitignore
+!config.js
