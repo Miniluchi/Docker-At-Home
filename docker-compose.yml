@@ -614,8 +614,8 @@ services:
     image: diygod/rsshub:latest
     container_name: rsshub
     restart: "on-failure:2"
-    mem_limit: 256m
-    memswap_limit: 256m
+    mem_limit: 384m
+    memswap_limit: 384m
     healthcheck:
       test:
         [
@@ -628,6 +628,7 @@ services:
       start_period: 30s
     environment:
       - TZ=${TZ}
+      - NODE_OPTIONS=--max-old-space-size=320
     networks:
       - traefik_net
     labels:
