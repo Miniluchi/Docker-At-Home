@@ -5,12 +5,11 @@
 # Ajouter un indexeur = le créer dans Prowlarr, 1 entrée ici + son id d'import.
 locals {
   indexers = {
-    ygege              = { name = "Ygégé", priority = 1, definition_file = "ygege", base_url = "http://ygege:8715/" }
-    generation_free    = { name = "Generation-Free", priority = 2, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
-    generation_free_fl = { name = "Generation-Free (Freeleech)", priority = 1, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
-    nostradamus        = { name = "Nostradamus", priority = 2, definition_file = "nostradamus", base_url = "https://nostradamus.foo/" }
-    torr9              = { name = "Torr9", priority = 2, definition_file = "torr9", base_url = "https://torr9.net/" }
-    c411               = { name = "C411", priority = 2, definition_file = "c411", base_url = "https://c411.org/" }
+    ygege           = { name = "Ygégé", priority = 1, definition_file = "ygege", base_url = "http://ygege:8715/" }
+    generation_free = { name = "Generation-Free", priority = 1, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
+    nostradamus     = { name = "Nostradamus", priority = 3, definition_file = "nostradamus", base_url = "https://nostradamus.foo/" }
+    torr9           = { name = "Torr9", priority = 3, definition_file = "torr9", base_url = "https://torr9.net/" }
+    c411            = { name = "C411", priority = 3, definition_file = "c411", base_url = "https://c411.org/" }
   }
 }
 

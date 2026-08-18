@@ -112,20 +112,6 @@ locals {
       }]
     }
 
-    # x265/HEVC : indésirable en 1080p (réencodage), normal en 2160p.
-    x265_hd = {
-      name        = "x265 (HD)"
-      score       = 0
-      score_1080p = -10000
-      specifications = [{
-        name           = "x265 (HD)"
-        implementation = "ReleaseTitleSpecification"
-        negate         = false
-        required       = true
-        value          = "\\b((x|h)\\.?265|HEVC)\\b"
-      }]
-    }
-
     # Regex large (HDR10 inclus) ; HDR10+ cumule son bonus -> HDR10+ (23) > HDR (8).
     hdr = {
       name  = "HDR"
