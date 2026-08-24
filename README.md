@@ -87,6 +87,7 @@ docker compose --profile media restart
 - **Tailscale** — Sidecar node `dah-proxy` sharing Traefik's netns; entry point of the private zone `*.lan.${DOMAIN_BASE}` (see `docs/acces-prive-tailscale.md`)
 - **Portainer** — Docker management UI (OIDC SSO via Authentik)
 - **Authentik** — SSO / Identity Provider (OIDC, OAuth2, Forward Auth), with a dedicated PostgreSQL (also in `devtools`)
+- **Authentik Worker** — Drains Authentik's Postgres task queue: applies the default blueprints (MFA setup stages), reconciles outposts, sends emails, rotates certificates. Without it the queue is never consumed
 - **Homepage** — Main landing dashboard on `lan.${DOMAIN_BASE}`, protected by Authentik Forward Auth (also in `dashboard`)
 - **CrowdSec** — Intrusion detection engine; feeds the Traefik bouncer middleware, applied to the public routers only (also in `security`)
 
