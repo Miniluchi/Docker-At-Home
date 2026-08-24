@@ -771,6 +771,61 @@ services:
       - tools
       - all
 
+  # Papra - Gestion documentaire (archivage, recherche, tags)
+  papra:
+    image: ghcr.io/papra-hq/papra:latest
+    container_name: papra
+    restart: "on-failure:2"
+    mem_limit: 1g
+    memswap_limit: 1g
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:1221/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # AUTH_PROVIDERS_CUSTOMS (client OIDC Authentik) fourni par Terraform
+    # (cf. terraform/authentik/generated/papra.env)
+    env_file:
+      - ./terraform/authentik/generated/papra.env
+    environment:
+      - TZ=${TZ}
+      # Sert aussi d'origine de confiance (protection CSRF)
+      - APP_BASE_URL=https://doc.lan.${DOMAIN_BASE}
+      - AUTH_SECRET=${PAPRA_AUTH_SECRET:?papra auth secret required}
+      # SSO uniquement : la connexion se fait via Authentik
+      - AUTH_PROVIDERS_EMAIL_IS_ENABLED=false
+      # Comptes provisionnés à la 1re connexion OIDC : réactiver temporairement pour en ajouter un
+      - AUTH_IS_REGISTRATION_ENABLED=false
+      - AUTH_SHOW_LEGAL_LINKS=false
+      # OCR tesseract.js : anglais + français
+      - DOCUMENTS_OCR_LANGUAGES=eng,fra
+    volumes:
+      - papra_data:/app/app-data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.papra.rule=Host(`doc.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.papra.entrypoints=websecure"
+      - "traefik.http.routers.papra.tls=true"
+      - "traefik.http.routers.papra.tls.certresolver=letsEncrypt"
+      - "traefik.http.routers.papra.tls.domains[0].main=lan.${DOMAIN_BASE}"
+      - "traefik.http.routers.papra.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
+      - "traefik.http.services.papra.loadbalancer.server.port=1221"
+      - "traefik.docker.network=traefik_net"
+      # Privé (tailnet), OIDC géré directement par Papra : pas de forward auth
+    profiles:
+      - tools
+      - all
+
   # YGege - Nostr to Torznab Bridge
   ygege:
     image: uwucode/ygege:latest
@@ -1100,3 +1155,6 @@ volumes:
 
   # ChangeDetection.io
   changedetection_data:
+
+  # Papra
+  papra_data:

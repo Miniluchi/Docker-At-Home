@@ -89,6 +89,12 @@
         description: Generateur de flux RSS
         server: my-docker
         container: rsshub
+    - Papra:
+        href: https://doc.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
+        icon: papra.png
+        description: Gestion documentaire
+        server: my-docker
+        container: papra
 
 - Metriques:
     - CPU:

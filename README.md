@@ -120,6 +120,7 @@ docker compose --profile media restart
 
 - **RSSHub** — RSS feed generator for sites that don't provide one
 - **FreshRSS** — Self-hosted RSS aggregator (OIDC SSO via Authentik)
+- **Papra** — Document management / archiving on `doc.lan.${DOMAIN_BASE}` (private zone, OIDC SSO via Authentik)
 
 ## 📂 Media layout
 
@@ -182,6 +183,7 @@ For native API clients (Helmarr-style mobile tooling from the tailnet — intern
 
 - **Portainer** — OIDC (Authentik side managed by Terraform; the OAuth fields are entered manually in Portainer's UI, see below)
 - **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
+- **Papra** — OIDC (fully managed by Terraform, credentials injected via env file; email/password login disabled)
 - **Jellyfin** — OIDC via the SSO plugin (manual)
 
 ### Access
@@ -222,7 +224,7 @@ The Authentik configuration is managed as code (provider `goauthentik/authentik`
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
 | `shared.tf`                                        | Shared data sources (authorization/invalidation flows, default OIDC scopes)                                                                                                     |
-| `freshrss.tf`, `portainer.tf`                      | OIDC providers + applications (+ generated env file)                                                                                                                            |
+| `freshrss.tf`, `portainer.tf`, `papra.tf`          | OIDC providers + applications (+ generated env file)                                                                                                                            |
 | `proxy_forwardauth.tf`                             | The Forward Auth services: per service a proxy provider (`forward_single`, `external_host` on the private zone), an application, a `<service>-access` group, and a policy binding restricting access to that group |
 | `outpost.tf`                                       | Embedded outpost; all proxy providers are attached automatically                                                                                                                |
 
