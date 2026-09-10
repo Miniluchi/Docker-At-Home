@@ -852,6 +852,23 @@ services:
       - media
       - all
 
+  # iSponsorBlockTV
+  isponsorblocktv:
+    image: ghcr.io/dmunozv04/isponsorblocktv:v2
+    container_name: isponsorblocktv
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - ./isponsorblocktv:/app/data
+    networks:
+      - traefik_net
+    profiles:
+      - media
+      - all
+
   # PostgreSQL Authentik - Base de données dédiée
   authentik-db:
     image: postgres:16-alpine
