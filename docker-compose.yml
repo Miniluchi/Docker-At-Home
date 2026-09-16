@@ -898,7 +898,13 @@ services:
 
   # Authentik Server - SSO/Identity Provider
   authentik-server:
-    image: ghcr.io/goauthentik/server:2026.8.0
+    # Pas de piste LTS chez authentik : ni tag `lts` au registry (seuls `latest`,
+    # `stable` et les versions), ni release longue durée. Cycle ~3 mois, seules la
+    # version courante et la précédente reçoivent les correctifs de sécurité
+    # (2026.8 et 2026.5 à ce jour) — rester sur la dernière est la position la plus
+    # supportée. Le worker doit garder exactement le même tag que le serveur.
+    # NB : authentik ne supporte pas le downgrade de base (migrations non réversibles).
+    image: ghcr.io/goauthentik/server:2026.8.2
     container_name: authentik-server
     restart: unless-stopped
     command: server
@@ -945,7 +951,8 @@ services:
   # rotation de certificats). Sans lui la file de tâches Postgres n'est jamais
   # consommée : les blueprints par défaut (setup MFA TOTP/WebAuthn) ne s'appliquent pas.
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2026.8.0
+    # Même tag que authentik-server (cf. note plus haut) : les deux doivent être alignés.
+    image: ghcr.io/goauthentik/server:2026.8.2
     container_name: authentik-worker
     restart: unless-stopped
     command: worker
