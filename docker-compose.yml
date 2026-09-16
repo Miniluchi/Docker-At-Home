@@ -1007,6 +1007,10 @@ services:
       - homepage_config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${MEDIA_PATH}:/mnt/media:ro
+    # HOMEPAGE_OIDC_ISSUER / _CLIENT_ID / _CLIENT_SECRET fournis par Terraform
+    # (cf. terraform/authentik/generated/homepage.env)
+    env_file:
+      - ./terraform/authentik/generated/homepage.env
     environment:
       - TZ=${TZ}
       - HOMEPAGE_ALLOWED_HOSTS=lan.${DOMAIN_BASE}
@@ -1015,6 +1019,13 @@ services:
       - HOMEPAGE_VAR_PRIVATE_DOMAIN=lan.${DOMAIN_BASE}
       - HOMEPAGE_VAR_RADARR_API_KEY=${RADARR_API_KEY}
       - HOMEPAGE_VAR_SONARR_API_KEY=${SONARR_API_KEY}
+      # Auth native OIDC (Homepage >= 2.0) : remplace le forward auth Traefik.
+      # AUTO_LOGIN garde la redirection transparente vers Authentik qu'offrait le proxy.
+      - HOMEPAGE_AUTH_ENABLED=true
+      - HOMEPAGE_AUTH_SECRET=${HOMEPAGE_AUTH_SECRET:?homepage auth secret required}
+      - HOMEPAGE_EXTERNAL_URL=https://lan.${DOMAIN_BASE}
+      - HOMEPAGE_OIDC_NAME=Authentik
+      - HOMEPAGE_OIDC_AUTO_LOGIN=true
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.homepage.rule=Host(`lan.${DOMAIN_BASE}`)"
@@ -1025,10 +1036,8 @@ services:
       - "traefik.http.routers.homepage.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.homepage.middlewares=authentik-homepage@docker"
-      - "traefik.http.middlewares.authentik-homepage.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-homepage.forwardauth.trustForwardHeader=true"
+      # Privé (tailnet) : pas de forward auth ici, Homepage porte son propre OIDC
+      # (les callbacks /api/auth/* doivent atteindre Homepage sans interception).
     profiles:
       - dashboard
       - infrastructure

@@ -18,7 +18,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 ### 🌐 Public vs private (Tailscale)
 
-Only **Jellyfin**, **Seerr**, **Authentik** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and Authentik Forward Auth stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
+Only **Jellyfin**, **Seerr**, **Authentik** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and Authentik SSO (Forward Auth, or native OIDC where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
 ## 🚀 Quick start
 
@@ -69,7 +69,7 @@ docker compose --profile media restart
 - **Portainer** — Docker management UI (OIDC SSO via Authentik)
 - **Authentik** — SSO / Identity Provider (OIDC, OAuth2, Forward Auth), dedicated PostgreSQL
 - **Authentik Worker** — Drains Authentik's task queue (blueprints, outposts, emails, certificates); without it the queue is never consumed
-- **Homepage** — Landing dashboard on `lan.${DOMAIN_BASE}`, behind Forward Auth
+- **Homepage** — Landing dashboard on `lan.${DOMAIN_BASE}`, native OIDC login against Authentik
 - **CrowdSec** — Intrusion detection; feeds the Traefik bouncer middleware on the public routers
 
 ### 📊 dashboard
@@ -163,7 +163,9 @@ Notes:
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
-`homepage`, `radarr`, `sonarr`, `prowlarr`, `qbittorrent`, `jellystat`, `glances`
+`radarr`, `sonarr`, `prowlarr`, `qbittorrent`, `jellystat`, `glances`, `changedetection`
+
+> **Homepage** left this list: since v2.0 it authenticates on its own (`HOMEPAGE_AUTH_ENABLED` + `HOMEPAGE_OIDC_*`), so it uses a regular OIDC provider (`homepage.tf`) instead of the outpost. Access is still gated on the `homepage-access` group.
 
 The Traefik middlewares all point at the embedded outpost:
 
@@ -230,7 +232,7 @@ Two independent modules under `terraform/`:
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
 | `shared.tf`                                        | Shared data sources (flows, default OIDC scopes)                                                                                                                                |
-| `freshrss.tf`, `portainer.tf`, `papra.tf`          | OIDC providers + applications (+ generated env file)                                                                                                                            |
+| `freshrss.tf`, `portainer.tf`, `papra.tf`, `homepage.tf` | OIDC providers + applications (+ generated env file)                                                                                                                      |
 | `proxy_forwardauth.tf`                             | Per service: proxy provider (`forward_single`), application, `<service>-access` group, policy binding                                                                            |
 | `outpost.tf`                                       | Embedded outpost; all proxy providers attached automatically                                                                                                                    |
 

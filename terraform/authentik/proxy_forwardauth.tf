@@ -22,13 +22,12 @@ locals {
   # Ces services ne sont joignables que via le tailnet (cf. docs/acces-prive-tailscale.md) ;
   # le forward auth est conservé en défense-en-profondeur par-dessus Tailscale.
   forward_auth_services = {
-    radarr      = { display = "Radarr", host = "radarr" }
-    sonarr      = { display = "Sonarr", host = "sonarr" }
-    qbittorrent = { display = "qBittorrent", host = "qbt" }
-    prowlarr    = { display = "Prowlarr", host = "prowlarr" }
-    jellystat   = { display = "Jellystat", host = "jellystat" }
-    glances     = { display = "Glances", host = "glances" }
-    homepage    = { display = "Homepage", host = "" }
+    radarr          = { display = "Radarr", host = "radarr" }
+    sonarr          = { display = "Sonarr", host = "sonarr" }
+    qbittorrent     = { display = "qBittorrent", host = "qbt" }
+    prowlarr        = { display = "Prowlarr", host = "prowlarr" }
+    jellystat       = { display = "Jellystat", host = "jellystat" }
+    glances         = { display = "Glances", host = "glances" }
     changedetection = { display = "ChangeDetection", host = "changedetection" }
   }
 }
