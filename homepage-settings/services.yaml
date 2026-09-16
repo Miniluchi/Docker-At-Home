@@ -69,6 +69,17 @@
         href: https://glances.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: glances.png
         description: Monitoring systeme
+    - CrowdSec:
+        href: https://app.crowdsec.net/
+        icon: crowdsec.png
+        description: IPS collaboratif
+        server: my-docker
+        container: crowdsec
+        widget:
+          type: crowdsec
+          url: http://crowdsec:8080
+          username: "{{HOMEPAGE_VAR_CROWDSEC_USERNAME}}"
+          password: "{{HOMEPAGE_VAR_CROWDSEC_PASSWORD}}"
 
 - Outils:
     - SonarQube:

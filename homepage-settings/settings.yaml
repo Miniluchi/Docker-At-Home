@@ -25,7 +25,7 @@ layout:
     columns: 2
   Infrastructure:
     style: row
-    columns: 2
+    columns: 4
   Outils:
     style: row
     columns: 3

@@ -1019,6 +1019,9 @@ services:
       - HOMEPAGE_VAR_PRIVATE_DOMAIN=lan.${DOMAIN_BASE}
       - HOMEPAGE_VAR_RADARR_API_KEY=${RADARR_API_KEY}
       - HOMEPAGE_VAR_SONARR_API_KEY=${SONARR_API_KEY}
+      # Widget CrowdSec : machine LAPI dédiée (cscli machines add homepage)
+      - HOMEPAGE_VAR_CROWDSEC_USERNAME=${CROWDSEC_HOMEPAGE_USERNAME}
+      - HOMEPAGE_VAR_CROWDSEC_PASSWORD=${CROWDSEC_HOMEPAGE_PASSWORD}
       # Auth native OIDC (Homepage >= 2.0) : remplace le forward auth Traefik.
       # AUTO_LOGIN garde la redirection transparente vers Authentik qu'offrait le proxy.
       - HOMEPAGE_AUTH_ENABLED=true
