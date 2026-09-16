@@ -10,8 +10,9 @@ resource "authentik_provider_oauth2" "papra" {
   # Callback better-auth (plugin genericOAuth) : /api/auth/oauth2/callback/<providerId>
   allowed_redirect_uris = [
     {
-      matching_mode = "strict"
-      url           = "https://doc.lan.${var.domain_base}/api/auth/oauth2/callback/authentik"
+      matching_mode     = "strict"
+      redirect_uri_type = "authorization"
+      url               = "https://doc.lan.${var.domain_base}/api/auth/oauth2/callback/authentik"
     }
   ]
 }

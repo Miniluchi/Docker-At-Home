@@ -11,8 +11,9 @@ resource "authentik_provider_oauth2" "portainer" {
   # sur auth.<domain_base> (public), seule la redirect URI change.
   allowed_redirect_uris = [
     {
-      matching_mode = "strict"
-      url           = "https://portainer.lan.${var.domain_base}/"
+      matching_mode     = "strict"
+      redirect_uri_type = "authorization"
+      url               = "https://portainer.lan.${var.domain_base}/"
     }
   ]
 }

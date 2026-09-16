@@ -5,12 +5,13 @@ resource "authentik_provider_oauth2" "freshrss" {
   client_type        = "confidential"
   authorization_flow = data.authentik_flow.default_authorization.id
   invalidation_flow  = data.authentik_flow.default_invalidation.id
-  property_mappings = data.authentik_property_mapping_provider_scope.oidc_default.ids
+  property_mappings  = data.authentik_property_mapping_provider_scope.oidc_default.ids
 
   allowed_redirect_uris = [
     {
-      matching_mode = "strict"
-      url           = "https://rss.${var.domain_base}/i/oidc/"
+      matching_mode     = "strict"
+      redirect_uri_type = "authorization"
+      url               = "https://rss.${var.domain_base}/i/oidc/"
     }
   ]
 }

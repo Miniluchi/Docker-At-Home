@@ -2,7 +2,7 @@ terraform {
   required_providers {
     authentik = {
       source  = "goauthentik/authentik"
-      version = "~> 2025.8"
+      version = "~> 2026.8"
     }
     local = {
       source  = "hashicorp/local"
