@@ -737,7 +737,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5000/',timeout=5).status < 500 else 1)\"",
+          'python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(''http://127.0.0.1:5000/'',timeout=5).status < 500 else 1)"',
         ]
       interval: 30s
       timeout: 10s
@@ -785,7 +785,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:1221/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+          'node -e "fetch(''http://127.0.0.1:1221/api/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"',
         ]
       interval: 30s
       timeout: 10s
