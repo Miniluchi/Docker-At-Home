@@ -43,6 +43,7 @@ services:
     command:
       - "--api.dashboard=false"
       - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
       - "--log.level=INFO"
       - "--ping=true"
       - "--entrypoints.web.address=:80"
@@ -84,9 +85,6 @@ services:
       - ./traefik-dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
       - traefik_net
-    labels:
-      - "traefik.enable=true"
-      # Middleware crowdsec-bouncer défini dans traefik-dynamic.yml (file provider)
     profiles:
       - infrastructure
       - all
