@@ -8,8 +8,6 @@ http:
       service: jellyfin
       middlewares:
         - crowdsec-bouncer
-      tls:
-        certResolver: letsEncrypt
 
     # Glances natif (monitoring de l'hôte macOS) — privé (tailnet),
     # Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -20,12 +18,6 @@ http:
       service: glances
       middlewares:
         - authentik-glances
-      tls:
-        certResolver: letsEncrypt
-        domains:
-          - main: "lan.{{ env "DOMAIN_BASE" }}"
-            sans:
-              - "*.lan.{{ env "DOMAIN_BASE" }}"
 
   services:
     jellyfin:

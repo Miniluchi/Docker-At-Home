@@ -53,6 +53,14 @@ services:
       - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
       - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # TLS par défaut pour tous les routeurs websecure (wildcards apex + *.lan).
+      # Ne PAS mettre de label tls* sur un routeur : même tls=true remplace ce bloc.
+      - "--entrypoints.websecure.http.tls=true"
+      - "--entrypoints.websecure.http.tls.certresolver=letsEncrypt"
+      - "--entrypoints.websecure.http.tls.domains[0].main=${DOMAIN_BASE}"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.${DOMAIN_BASE}"
+      - "--entrypoints.websecure.http.tls.domains[1].main=lan.${DOMAIN_BASE}"
+      - "--entrypoints.websecure.http.tls.domains[1].sans=*.lan.${DOMAIN_BASE}"
       # Logs pour CrowdSec
       - "--accesslog=true"
       - "--accesslog.filepath=/var/log/traefik/access.log"
@@ -150,10 +158,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.tls=true"
-      - "traefik.http.routers.portainer.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.portainer.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.portainer.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
     security_opt:
@@ -199,8 +203,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.seerr.rule=Host(`seerr.${DOMAIN_BASE}`)"
       - "traefik.http.routers.seerr.entrypoints=websecure"
-      - "traefik.http.routers.seerr.tls=true"
-      - "traefik.http.routers.seerr.tls.certresolver=letsEncrypt"
       - "traefik.http.services.seerr.loadbalancer.server.port=5055"
       - "traefik.docker.network=traefik_net"
       # CrowdSec only (OIDC géré directement par Seerr)
@@ -241,10 +243,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.radarr.rule=Host(`radarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.radarr.entrypoints=websecure"
-      - "traefik.http.routers.radarr.tls=true"
-      - "traefik.http.routers.radarr.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.radarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.radarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -254,10 +252,6 @@ services:
       # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.radarr-api.rule=Host(`radarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.radarr-api.entrypoints=websecure"
-      - "traefik.http.routers.radarr-api.tls=true"
-      - "traefik.http.routers.radarr-api.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.radarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.radarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.radarr-api.service=radarr"
       - "traefik.http.routers.radarr-api.priority=100"
     profiles:
@@ -294,10 +288,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarr.rule=Host(`sonarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.sonarr.entrypoints=websecure"
-      - "traefik.http.routers.sonarr.tls=true"
-      - "traefik.http.routers.sonarr.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.sonarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.sonarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -307,10 +297,6 @@ services:
       # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.sonarr-api.rule=Host(`sonarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.sonarr-api.entrypoints=websecure"
-      - "traefik.http.routers.sonarr-api.tls=true"
-      - "traefik.http.routers.sonarr-api.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.sonarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.sonarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.sonarr-api.service=sonarr"
       - "traefik.http.routers.sonarr-api.priority=100"
     profiles:
@@ -348,10 +334,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.qbittorrent.rule=Host(`qbt.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.qbittorrent.entrypoints=websecure"
-      - "traefik.http.routers.qbittorrent.tls=true"
-      - "traefik.http.routers.qbittorrent.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.qbittorrent.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.qbittorrent.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -361,10 +343,6 @@ services:
       # API hors Authentik (auth WebUI qBittorrent réactivée) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.qbittorrent-api.rule=Host(`qbt.lan.${DOMAIN_BASE}`) && PathPrefix(`/api/v2`)"
       - "traefik.http.routers.qbittorrent-api.entrypoints=websecure"
-      - "traefik.http.routers.qbittorrent-api.tls=true"
-      - "traefik.http.routers.qbittorrent-api.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.qbittorrent-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.qbittorrent-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.qbittorrent-api.service=qbittorrent"
       - "traefik.http.routers.qbittorrent-api.priority=100"
     profiles:
@@ -503,10 +481,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.prowlarr.rule=Host(`prowlarr.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
-      - "traefik.http.routers.prowlarr.tls=true"
-      - "traefik.http.routers.prowlarr.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.prowlarr.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.prowlarr.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -516,10 +490,6 @@ services:
       # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.prowlarr-api.rule=Host(`prowlarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.prowlarr-api.entrypoints=websecure"
-      - "traefik.http.routers.prowlarr-api.tls=true"
-      - "traefik.http.routers.prowlarr-api.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.prowlarr-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.prowlarr-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.prowlarr-api.service=prowlarr"
       - "traefik.http.routers.prowlarr-api.priority=100"
     profiles:
@@ -586,10 +556,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.jellystat.rule=Host(`jellystat.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.jellystat.entrypoints=websecure"
-      - "traefik.http.routers.jellystat.tls=true"
-      - "traefik.http.routers.jellystat.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.jellystat.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.jellystat.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.jellystat.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -599,10 +565,6 @@ services:
       # API + proxy hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.lan.${DOMAIN_BASE}`) && (PathPrefix(`/api`) || PathPrefix(`/proxy`))"
       - "traefik.http.routers.jellystat-api.entrypoints=websecure"
-      - "traefik.http.routers.jellystat-api.tls=true"
-      - "traefik.http.routers.jellystat-api.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.jellystat-api.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.jellystat-api.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.routers.jellystat-api.service=jellystat"
       - "traefik.http.routers.jellystat-api.priority=100"
     profiles:
@@ -635,10 +597,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.rsshub.rule=Host(`rsshub.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.rsshub.entrypoints=websecure"
-      - "traefik.http.routers.rsshub.tls=true"
-      - "traefik.http.routers.rsshub.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.rsshub.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.rsshub.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
       - "traefik.docker.network=traefik_net"
     profiles:
@@ -682,8 +640,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.freshrss.rule=Host(`rss.${DOMAIN_BASE}`)"
       - "traefik.http.routers.freshrss.entrypoints=websecure"
-      - "traefik.http.routers.freshrss.tls=true"
-      - "traefik.http.routers.freshrss.tls.certresolver=letsEncrypt"
       - "traefik.http.services.freshrss.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
       # Public : CrowdSec (OIDC géré directement par FreshRSS)
@@ -713,10 +669,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.it-tools.rule=Host(`it.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.it-tools.entrypoints=websecure"
-      - "traefik.http.routers.it-tools.tls=true"
-      - "traefik.http.routers.it-tools.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.it-tools.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.it-tools.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.it-tools.loadbalancer.server.port=80"
       - "traefik.docker.network=traefik_net"
     profiles:
@@ -757,10 +709,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.changedetection.rule=Host(`changedetection.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.changedetection.entrypoints=websecure"
-      - "traefik.http.routers.changedetection.tls=true"
-      - "traefik.http.routers.changedetection.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.changedetection.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.changedetection.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.changedetection.loadbalancer.server.port=5000"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
@@ -815,10 +763,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.papra.rule=Host(`doc.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.papra.entrypoints=websecure"
-      - "traefik.http.routers.papra.tls=true"
-      - "traefik.http.routers.papra.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.papra.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.papra.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.papra.loadbalancer.server.port=1221"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet), OIDC géré directement par Papra : pas de forward auth
@@ -936,8 +880,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN_BASE}`)"
       - "traefik.http.routers.authentik.entrypoints=websecure"
-      - "traefik.http.routers.authentik.tls=true"
-      - "traefik.http.routers.authentik.tls.certresolver=letsEncrypt"
       - "traefik.http.services.authentik.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
       # CrowdSec protection
@@ -1033,10 +975,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.homepage.rule=Host(`lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.homepage.entrypoints=websecure"
-      - "traefik.http.routers.homepage.tls=true"
-      - "traefik.http.routers.homepage.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.homepage.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.homepage.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.homepage.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : pas de forward auth ici, Homepage porte son propre OIDC
@@ -1087,10 +1025,6 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.lan.${DOMAIN_BASE}`)"
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
-      - "traefik.http.routers.sonarqube.tls=true"
-      - "traefik.http.routers.sonarqube.tls.certresolver=letsEncrypt"
-      - "traefik.http.routers.sonarqube.tls.domains[0].main=lan.${DOMAIN_BASE}"
-      - "traefik.http.routers.sonarqube.tls.domains[0].sans=*.lan.${DOMAIN_BASE}"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
     profiles:
