@@ -5,11 +5,9 @@
 # Ajouter un indexeur = le créer dans Prowlarr, 1 entrée ici + son id d'import.
 locals {
   indexers = {
-    ygege           = { name = "Ygégé", priority = 1, definition_file = "ygege", base_url = "http://ygege:8715/" }
     generation_free = { name = "Generation-Free", priority = 1, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
-    nostradamus     = { name = "Nostradamus", priority = 3, definition_file = "nostradamus", base_url = "https://nostradamus.foo/" }
-    torr9           = { name = "Torr9", priority = 3, definition_file = "torr9", base_url = "https://torr9.net/" }
     c411            = { name = "C411", priority = 3, definition_file = "c411", base_url = "https://c411.org/" }
+    tr4ker          = { name = "TR4KER", priority = 3, definition_file = "tr4ker", base_url = "https://tr4ker.net/" }
   }
 }
 
@@ -21,7 +19,7 @@ resource "prowlarr_indexer" "this" {
   implementation  = "Cardigann"
   config_contract = "CardigannSettings"
   protocol        = "torrent"
-  app_profile_id  = each.key == "ygege" ? prowlarr_sync_profile.leak.id : prowlarr_sync_profile.standard.id
+  app_profile_id  = prowlarr_sync_profile.standard.id
   priority        = each.value.priority
 
   fields = [
@@ -32,11 +30,6 @@ resource "prowlarr_indexer" "this" {
   lifecycle {
     ignore_changes = [fields]
   }
-}
-
-moved {
-  from = prowlarr_indexer.ygege
-  to   = prowlarr_indexer.this["ygege"]
 }
 
 output "prowlarr_indexer_ids" {

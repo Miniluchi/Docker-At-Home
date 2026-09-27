@@ -8,7 +8,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 - **infrastructure** — Traefik, Tailscale, Portainer, Authentik, Homepage, CrowdSec
 - **dashboard** — Homepage
-- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat, Ygégé
+- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat
 - **devtools** — SonarQube, Authentik
 - **security** — CrowdSec
 - **tools** — RSSHub, FreshRSS, Papra
@@ -88,7 +88,6 @@ docker compose --profile media restart
 - **Gluetun** — VPN client (WireGuard)
 - **gluetun-qbt-watchdog** — Syncs Gluetun's forwarded port into qBittorrent and restarts it when the tunnel drops ([brunoorsolon/gluetun-qbt-watchdog](https://github.com/brunoorsolon/gluetun-qbt-watchdog))
 - **Jellystat** — Usage statistics for Jellyfin (dedicated PostgreSQL)
-- **Ygégé** — YGGtorrent indexer proxy (consumed by Prowlarr)
 - **iSponsorBlockTV** — Skips/mutes YouTube ads and SponsorBlock segments on the Apple TV via the Lounge API ([dmunozv04/iSponsorBlockTV](https://github.com/dmunozv04/iSponsorBlockTV))
 
 ### 🧰 devtools
@@ -262,8 +261,8 @@ Codifies the Radarr / Sonarr / Prowlarr configuration (quality settings, indexer
 | `locals.tf`              | TRaSH-style **custom formats** (MULTi/TRUEFRENCH/FRENCH favoured; VOSTFR/VFQ/unwanted blocked) with per-resolution scores                                       |
 | `radarr.tf`, `sonarr.tf` | Root folder, qBittorrent download client, custom formats, quality profiles, recycle bin                                                                       |
 | `prowlarr.tf`            | qBittorrent download client, Radarr/Sonarr applications, Telegram notification                                                                                 |
-| `indexers.tf`            | Prowlarr Cardigann indexers (Ygégé, Generation-Free, Nostradamus, Torr9, C411) — **adopted by import**                                                          |
-| `sync_profile.tf`        | Prowlarr sync profiles with a per-indexer **minimum-seeders floor** (Ygégé/Leak = 2)                                                                           |
+| `indexers.tf`            | Prowlarr Cardigann indexers (Generation-Free, C411, TR4KER) — **adopted by import**                                                                               |
+| `sync_profile.tf`        | Prowlarr sync profile (**minimum-seeders floor** for grabbing)                                                                                                 |
 | `quality_definitions.tf` | TRaSH quality sizes (`min_size = 0` — custom formats do the filtering)                                                                                         |
 | `imports.tf`             | Conditional imports — empty `*_import_id` ⇒ resource created; set ⇒ existing config adopted                                                                    |
 

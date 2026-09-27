@@ -37,17 +37,12 @@ radarr_profile_language = "French" # "Any" pour laisser les custom formats déci
 # Indexeurs Prowlarr (structure : indexers.tf).
 prowlarr_sync_level = "fullSync"
 
-# Plancher de seeders du profil Leak / Ygégé (voir sync_profile.tf). 2 par défaut.
-ygege_minimum_seeders = 2
-
 # ID Prowlarr par indexeur (adoption par import). Serveur neuf : créer d'abord
 # les indexeurs dans Prowlarr, puis renseigner leurs ids ici.
 indexer_import_ids = {
-  generation_free    = ""
-  generation_free_fl = ""
-  nostradamus        = ""
-  torr9              = ""
-  c411               = ""
+  generation_free = ""
+  c411            = ""
+  tr4ker          = ""
 }
 
 # IDs d'import (voir imports.tf) : vide = créé, renseigné = adopté.
