@@ -15,13 +15,17 @@ radarr_root_folder_path = "/data/Film"
 sonarr_root_folder_path = "/data/Serie"
 recycle_bin_path        = "/data/.recyclebin"
 
-# qBittorrent.
-qbt_host            = "gluetun"
-qbt_port            = 8080
-qbt_username        = "REMPLACER_PAR_LE_USER_QBT"
-qbt_password        = "REMPLACER_PAR_LE_MDP_QBT"
-radarr_qbt_category = "radarr"
-sonarr_qbt_category = "sonarr"
+# qBittorrent via le Client Proxy qui (une clé par application, identifiants inutiles).
+# Accès direct : qbt_host = "gluetun", qbt_port = 8080, url_base vides + identifiants qBittorrent.
+qbt_host              = "qui"
+qbt_port              = 7476
+qbt_username          = ""
+qbt_password          = ""
+radarr_qbt_url_base   = "/proxy/REMPLACER_PAR_LA_CLE_RADARR"
+sonarr_qbt_url_base   = "/proxy/REMPLACER_PAR_LA_CLE_SONARR"
+prowlarr_qbt_url_base = "/proxy/REMPLACER_PAR_LA_CLE_PROWLARR"
+radarr_qbt_category   = "radarr"
+sonarr_qbt_category   = "sonarr"
 
 # Telegram.
 telegram_bot_token = "123456789:REMPLACER_PAR_LE_TOKEN_DU_BOT"

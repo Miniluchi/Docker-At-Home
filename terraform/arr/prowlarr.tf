@@ -6,6 +6,7 @@ resource "prowlarr_download_client_qbittorrent" "qbittorrent" {
   priority = 1
   host     = var.qbt_host
   port     = var.qbt_port
+  url_base = var.prowlarr_qbt_url_base
   use_ssl  = false
   username = var.qbt_username
   password = var.qbt_password

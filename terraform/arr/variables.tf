@@ -54,28 +54,51 @@ variable "recycle_bin_path" {
   default     = "/data/.recyclebin"
 }
 
-# qBittorrent : tourne en network_mode service:gluetun -> vu des Arr = gluetun:8080.
+# qBittorrent : direct = gluetun:8080 (network_mode service:gluetun) ;
+# via le Client Proxy qui = qui:7476 + url_base /proxy/<clé> par application.
 variable "qbt_host" {
   type        = string
-  description = "Host du WebUI qBittorrent vu depuis les Arr (conteneur gluetun)."
+  description = "Host qBittorrent vu depuis les Arr : gluetun (direct) ou qui (proxy)."
   default     = "gluetun"
 }
 
 variable "qbt_port" {
   type        = number
-  description = "Port du WebUI qBittorrent."
+  description = "Port qBittorrent : 8080 (direct) ou 7476 (proxy qui)."
   default     = 8080
+}
+
+# Une clé Client Proxy qui par application ; vide = accès direct.
+variable "radarr_qbt_url_base" {
+  type        = string
+  description = "URL Base du client qBittorrent Radarr (/proxy/<clé> via qui)."
+  default     = ""
+  sensitive   = true
+}
+
+variable "sonarr_qbt_url_base" {
+  type        = string
+  description = "URL Base du client qBittorrent Sonarr (/proxy/<clé> via qui)."
+  default     = ""
+  sensitive   = true
+}
+
+variable "prowlarr_qbt_url_base" {
+  type        = string
+  description = "URL Base du client qBittorrent Prowlarr (/proxy/<clé> via qui)."
+  default     = ""
+  sensitive   = true
 }
 
 variable "qbt_username" {
   type        = string
-  description = "Identifiant qBittorrent (vide si auth désactivée)."
+  description = "Identifiant qBittorrent (vide si auth désactivée ou via le proxy qui)."
   default     = ""
 }
 
 variable "qbt_password" {
   type        = string
-  description = "Mot de passe qBittorrent (vide si auth désactivée)."
+  description = "Mot de passe qBittorrent (vide si auth désactivée ou via le proxy qui)."
   default     = ""
   sensitive   = true
 }
