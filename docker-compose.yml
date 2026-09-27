@@ -423,6 +423,7 @@ services:
   cross-seed:
     image: ghcr.io/cross-seed/cross-seed:6
     container_name: cross-seed
+    init: true
     restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
@@ -605,7 +606,7 @@ services:
   freshrss:
     image: freshrss/freshrss:latest
     container_name: freshrss
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 256m
     memswap_limit: 256m
     depends_on:
@@ -677,7 +678,7 @@ services:
   changedetection:
     image: ghcr.io/dgtlmoon/changedetection.io:latest
     container_name: changedetection
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 512m
     memswap_limit: 512m
     depends_on:
