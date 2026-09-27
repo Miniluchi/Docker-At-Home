@@ -24,7 +24,6 @@ locals {
   forward_auth_services = {
     radarr          = { display = "Radarr", host = "radarr" }
     sonarr          = { display = "Sonarr", host = "sonarr" }
-    qbittorrent     = { display = "qBittorrent", host = "qbt" }
     prowlarr        = { display = "Prowlarr", host = "prowlarr" }
     jellystat       = { display = "Jellystat", host = "jellystat" }
     glances         = { display = "Glances", host = "glances" }

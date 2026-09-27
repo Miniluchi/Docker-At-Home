@@ -45,12 +45,12 @@
         description: Indexeurs
         server: my-docker
         container: prowlarr
-    - qBittorrent:
-        href: https://qbt.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
-        icon: qbittorrent.png
-        description: Client torrent
+    - qui:
+        href: https://qui.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
+        icon: https://raw.githubusercontent.com/autobrr/qui/main/web/public/icon.png
+        description: WebUI qBittorrent
         server: my-docker
-        container: qbittorrent
+        container: qui
 
 - Infrastructure:
     - Portainer:

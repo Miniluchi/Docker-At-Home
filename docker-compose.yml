@@ -2,7 +2,7 @@
 # Available profiles:
 # - infrastructure : Core services (Traefik, Portainer, Authentik, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
-# - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, Jellystat, Ygège)
+# - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat, Ygège)
 # - devtools       : Developer tools (SonarQube, Authentik)
 # - security       : Security (CrowdSec + Traefik bouncer)
 # - tools          : Tools (RSSHub, FreshRSS)
@@ -328,21 +328,7 @@ services:
       - 'HTTP_CONTROL_SERVER_AUTH_DEFAULT_ROLE={"auth":"apikey","apikey":"${GLUETUN_API_KEY}"}'
     networks:
       - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.qbittorrent.rule=Host(`qbt.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.qbittorrent.entrypoints=websecure"
-      - "traefik.http.services.qbittorrent.loadbalancer.server.port=8080"
-      - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.qbittorrent.middlewares=authentik-qbittorrent@docker"
-      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-qbittorrent.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth WebUI qBittorrent réactivée) pour clients natifs type Helmarr (via tailnet)
-      - "traefik.http.routers.qbittorrent-api.rule=Host(`qbt.lan.${DOMAIN_BASE}`) && PathPrefix(`/api/v2`)"
-      - "traefik.http.routers.qbittorrent-api.entrypoints=websecure"
-      - "traefik.http.routers.qbittorrent-api.service=qbittorrent"
-      - "traefik.http.routers.qbittorrent-api.priority=100"
+    # Pas de route Traefik : WebUI servie par qui (qui.lan), accès interne via gluetun:8080
     profiles:
       - media
       - all
@@ -442,6 +428,58 @@ services:
     networks:
       - traefik_net
     command: daemon
+    profiles:
+      - media
+      - all
+
+  # qui - WebUI qBittorrent (https://github.com/autobrr/qui)
+  qui:
+    image: ghcr.io/autobrr/qui:latest
+    container_name: qui
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+      gluetun:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:7476/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # QUI__OIDC_ISSUER / _CLIENT_ID / _CLIENT_SECRET fournis par Terraform
+    # (cf. terraform/authentik/generated/qui.env)
+    env_file:
+      - ./terraform/authentik/generated/qui.env
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - QUI__HOST=0.0.0.0
+      - QUI__PORT=7476
+      - QUI__OIDC_ENABLED=true
+      - QUI__OIDC_REDIRECT_URL=https://qui.lan.${DOMAIN_BASE}/api/auth/oidc/callback
+      - QUI__OIDC_DISABLE_BUILT_IN_LOGIN=true
+    volumes:
+      - qui_config:/config
+      # Mêmes chemins que qBittorrent (orphan scan, hardlinks, automations)
+      - ${MEDIA_PATH}:/data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.qui.rule=Host(`qui.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.qui.entrypoints=websecure"
+      - "traefik.http.services.qui.loadbalancer.server.port=7476"
+      - "traefik.docker.network=traefik_net"
+      # Privé (tailnet), OIDC géré par qui ; /proxy/<clé> authentifié par clé client
     profiles:
       - media
       - all
@@ -1147,6 +1185,9 @@ volumes:
 
   # qBittorrent
   qbittorrent_config:
+
+  # qui
+  qui_config:
 
   # Prowlarr
   prowlarr_config:

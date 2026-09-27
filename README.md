@@ -8,7 +8,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 - **infrastructure** — Traefik, Tailscale, Portainer, Authentik, Homepage, CrowdSec
 - **dashboard** — Homepage
-- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, Jellystat, Ygégé
+- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat, Ygégé
 - **devtools** — SonarQube, Authentik
 - **security** — CrowdSec
 - **tools** — RSSHub, FreshRSS, Papra
@@ -84,6 +84,7 @@ docker compose --profile media restart
 - **Sonarr** — TV show automation
 - **Prowlarr** — Indexer manager for Radarr/Sonarr
 - **qBittorrent** — Torrent client, all traffic routed through Gluetun
+- **qui** — Modern qBittorrent WebUI with native OIDC, plus a client proxy for external apps ([autobrr/qui](https://github.com/autobrr/qui))
 - **Gluetun** — VPN client (WireGuard)
 - **gluetun-qbt-watchdog** — Syncs Gluetun's forwarded port into qBittorrent and restarts it when the tunnel drops ([brunoorsolon/gluetun-qbt-watchdog](https://github.com/brunoorsolon/gluetun-qbt-watchdog))
 - **Jellystat** — Usage statistics for Jellyfin (dedicated PostgreSQL)
@@ -163,7 +164,7 @@ Notes:
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
-`radarr`, `sonarr`, `prowlarr`, `qbittorrent`, `jellystat`, `glances`, `changedetection`
+`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`, `changedetection`
 
 > **Homepage** left this list: since v2.0 it authenticates on its own (`HOMEPAGE_AUTH_ENABLED` + `HOMEPAGE_OIDC_*`), so it uses a regular OIDC provider (`homepage.tf`) instead of the outpost. Access is still gated on the `homepage-access` group.
 
@@ -184,16 +185,18 @@ API clients send an API key, not an Authentik session, so Forward Auth would blo
 | Radarr      | `radarr-api`      | `Host(radarr.lan.…) && PathPrefix(/api)`      | `X-Api-Key`                         |
 | Sonarr      | `sonarr-api`      | `Host(sonarr.lan.…) && PathPrefix(/api)`      | `X-Api-Key`                         |
 | Prowlarr    | `prowlarr-api`    | `Host(prowlarr.lan.…) && PathPrefix(/api)`    | `X-Api-Key`                         |
-| qBittorrent | `qbittorrent-api` | `Host(qbt.lan.…) && PathPrefix(/api/v2)`      | qBittorrent WebUI auth (re-enabled) |
 | Jellystat   | `jellystat-api`   | `Host(jellystat.lan.…) && PathPrefix(/api)`   | `x-api-token`                       |
 
-> `priority=100` makes the `/api` prefix win over the catch-all UI router. These routes stay reachable when Authentik is down. qBittorrent therefore needs its WebUI auth **enabled**.
+> `priority=100` makes the `/api` prefix win over the catch-all UI router. These routes stay reachable when Authentik is down.
+
+> **qBittorrent** has no Traefik route: its UI is served by **qui** (`qui.lan.…`), and native clients (Helmarr) go through qui's client proxy (`/proxy/<key>`). qBittorrent stays reachable internally at `gluetun:8080`, so keep its WebUI auth **enabled**.
 
 ### Native OIDC
 
 - **Portainer** — OIDC (Authentik side managed by Terraform, OAuth fields entered in Portainer's UI, see below)
 - **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
 - **Papra** — OIDC (fully managed by Terraform; email/password login disabled)
+- **qui** — OIDC (fully managed by Terraform; built-in login disabled, access gated on the `qui-access` group)
 - **Jellyfin** — OIDC via the SSO plugin (manual)
 
 ### Access
@@ -232,7 +235,7 @@ Two independent modules under `terraform/`:
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
 | `shared.tf`                                        | Shared data sources (flows, default OIDC scopes)                                                                                                                                |
-| `freshrss.tf`, `portainer.tf`, `papra.tf`, `homepage.tf` | OIDC providers + applications (+ generated env file)                                                                                                                      |
+| `freshrss.tf`, `portainer.tf`, `papra.tf`, `homepage.tf`, `qui.tf` | OIDC providers + applications (+ generated env file)                                                                                                      |
 | `proxy_forwardauth.tf`                             | Per service: proxy provider (`forward_single`), application, `<service>-access` group, policy binding                                                                            |
 | `outpost.tf`                                       | Embedded outpost; all proxy providers attached automatically                                                                                                                    |
 
@@ -283,7 +286,7 @@ terraform apply
 - ✅ CrowdSec + Traefik bouncer on the remaining public edge (jellyfin/seerr/auth/rss)
 - ⚠️ **Single point of failure (assumed)**: if Authentik is down, every Forward Auth / OIDC **web UI** is inaccessible; the `/api` routes stay up
 - ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Authentik — mitigated by the tailnet boundary
-- ⚠️ The `/api` routes bypass Authentik and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
+- ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Authentik and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
 
 **Recommendations**:
 
