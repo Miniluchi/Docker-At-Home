@@ -1022,10 +1022,26 @@ services:
       - traefik_net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.sonarqube.rule=Host(`sonarqube.${DOMAIN_BASE}`)"
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
+      # Public : CrowdSec (SSO SAML géré directement par SonarQube)
+      - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@file"
+      # SSO Authentik forcé : la page de login redirige vers SAML, le login local est bloqué
+      - "traefik.http.routers.sonarqube-login.rule=Host(`sonarqube.${DOMAIN_BASE}`) && Path(`/sessions/new`)"
+      - "traefik.http.routers.sonarqube-login.entrypoints=websecure"
+      - "traefik.http.routers.sonarqube-login.service=sonarqube"
+      - "traefik.http.routers.sonarqube-login.priority=100"
+      - "traefik.http.routers.sonarqube-login.middlewares=crowdsec-bouncer@file,sonarqube-saml-redirect@docker"
+      - "traefik.http.middlewares.sonarqube-saml-redirect.redirectregex.regex=^https://([^/]+)/sessions/new(.*)"
+      - "traefik.http.middlewares.sonarqube-saml-redirect.redirectregex.replacement=https://$${1}/sessions/init/saml$${2}"
+      - "traefik.http.routers.sonarqube-local-auth.rule=Host(`sonarqube.${DOMAIN_BASE}`) && Path(`/api/authentication/login`)"
+      - "traefik.http.routers.sonarqube-local-auth.entrypoints=websecure"
+      - "traefik.http.routers.sonarqube-local-auth.service=sonarqube"
+      - "traefik.http.routers.sonarqube-local-auth.priority=100"
+      - "traefik.http.routers.sonarqube-local-auth.middlewares=sonarqube-deny@docker"
+      - "traefik.http.middlewares.sonarqube-deny.ipallowlist.sourcerange=127.0.0.1/32"
     profiles:
       - devtools
       - all
