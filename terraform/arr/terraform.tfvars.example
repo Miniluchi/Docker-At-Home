@@ -43,6 +43,7 @@ indexer_import_ids = {
   generation_free = ""
   c411            = ""
   tr4ker          = ""
+  nostradamus     = ""
 }
 
 # IDs d'import (voir imports.tf) : vide = créé, renseigné = adopté.

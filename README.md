@@ -261,7 +261,7 @@ Codifies the Radarr / Sonarr / Prowlarr configuration (quality settings, indexer
 | `locals.tf`              | TRaSH-style **custom formats** (MULTi/TRUEFRENCH/FRENCH favoured; VOSTFR/VFQ/unwanted blocked) with per-resolution scores                                       |
 | `radarr.tf`, `sonarr.tf` | Root folder, qBittorrent download client, custom formats, quality profiles, recycle bin                                                                       |
 | `prowlarr.tf`            | qBittorrent download client, Radarr/Sonarr applications, Telegram notification                                                                                 |
-| `indexers.tf`            | Prowlarr Cardigann indexers (Generation-Free, C411, TR4KER) — **adopted by import**                                                                               |
+| `indexers.tf`            | Prowlarr Cardigann indexers (Generation-Free, C411, TR4KER, Nostradamus — disabled) — **adopted by import**, `enable` per indexer                  |
 | `sync_profile.tf`        | Prowlarr sync profile (**minimum-seeders floor** for grabbing)                                                                                                 |
 | `quality_definitions.tf` | TRaSH quality sizes (`min_size = 0` — custom formats do the filtering)                                                                                         |
 | `imports.tf`             | Conditional imports — empty `*_import_id` ⇒ resource created; set ⇒ existing config adopted                                                                    |

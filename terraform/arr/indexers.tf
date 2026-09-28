@@ -5,9 +5,11 @@
 # Ajouter un indexeur = le créer dans Prowlarr, 1 entrée ici + son id d'import.
 locals {
   indexers = {
-    generation_free = { name = "Generation-Free", priority = 1, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
-    c411            = { name = "C411", priority = 3, definition_file = "c411", base_url = "https://c411.org/" }
-    tr4ker          = { name = "TR4KER", priority = 3, definition_file = "tr4ker", base_url = "https://tr4ker.net/" }
+    generation_free = { name = "Generation-Free", enable = true, priority = 1, definition_file = "generationfree-api", base_url = "https://generation-free.org/" }
+    c411            = { name = "C411", enable = true, priority = 3, definition_file = "c411", base_url = "https://c411.org/" }
+    tr4ker          = { name = "TR4KER", enable = true, priority = 3, definition_file = "tr4ker", base_url = "https://tr4ker.net/" }
+    # Hors ligne (migration d'hébergeur) : réactiver quand le site revient
+    nostradamus = { name = "Nostradamus", enable = false, priority = 3, definition_file = "nostradamus", base_url = "https://nostradamus.foo/" }
   }
 }
 
@@ -15,7 +17,7 @@ resource "prowlarr_indexer" "this" {
   for_each = local.indexers
 
   name            = each.value.name
-  enable          = true
+  enable          = each.value.enable
   implementation  = "Cardigann"
   config_contract = "CardigannSettings"
   protocol        = "torrent"
