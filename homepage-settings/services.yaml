@@ -59,6 +59,12 @@
         description: Gestion Docker
         server: my-docker
         container: portainer
+    - WUD:
+        href: https://wud.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
+        icon: whats-up-docker.png
+        description: Mises à jour des images
+        server: my-docker
+        container: wud
     - Authentik:
         href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
         icon: authentik.png
