@@ -211,6 +211,9 @@ services:
       # MAJ automatique, sauf conteneurs labellisés wud.trigger.exclude=docker.update ;
       # pas de prune : l'ancienne image reste disponible pour un rollback
       - WUD_TRIGGER_DOCKER_UPDATE_AUTO=true
+      # ONCE=true (défaut) ne déclenche que si le résultat change : incompatible avec DELAY
+      # (MAJ détectée pendant le délai, jamais redéclenchée ensuite)
+      - WUD_TRIGGER_DOCKER_UPDATE_ONCE=false
     volumes:
       # rw requis par le trigger docker (recréation des conteneurs)
       - /var/run/docker.sock:/var/run/docker.sock
