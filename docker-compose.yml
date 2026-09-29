@@ -372,10 +372,12 @@ services:
     environment:
       - TZ=${TZ}
       - VPN_SERVICE_PROVIDER=protonvpn
-      # OpenVPN : port forwardé ProtonVPN stable (en WireGuard il tourne toutes les ~90s, cf. gluetun#3196)
-      - VPN_TYPE=openvpn
-      - OPENVPN_USER=${PROTON_OPENVPN_USER}
-      - OPENVPN_PASSWORD=${PROTON_OPENVPN_PASSWORD}
+      # WireGuard avec une clé dédiée à gluetun (NAT-PMP coché) : une clé partagée fait tourner le port, cf. gluetun#3196
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=${PROTON_WIREGUARD_PRIVATE_KEY}
+      # Retour à OpenVPN : VPN_TYPE=openvpn + décommenter
+      # - OPENVPN_USER=${PROTON_OPENVPN_USER}
+      # - OPENVPN_PASSWORD=${PROTON_OPENVPN_PASSWORD}
       - SERVER_COUNTRIES=Netherlands
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
@@ -457,7 +459,7 @@ services:
       - QBT_AUTH_MODE=password
       - QBT_USER=${QBT_USER}
       - QBT_PASS=${QBT_PASS}
-      - CHECK_INTERVAL=30
+      - CHECK_INTERVAL=60
     networks:
       - traefik_net
     profiles:
