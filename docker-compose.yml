@@ -5,7 +5,7 @@
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat)
 # - devtools       : Developer tools (SonarQube, Authentik)
 # - security       : Security (CrowdSec + Traefik bouncer)
-# - tools          : Tools (RSSHub, FreshRSS)
+# - tools          : Tools (FreshRSS)
 # - all            : All services
 #
 # The PostgreSQL databases (Authentik, Jellystat, SonarQube) start with their
@@ -645,38 +645,6 @@ services:
       - media
       - all
 
-  # RSSHub - RSS Feed Generator
-  rsshub:
-    image: diygod/rsshub:latest
-    container_name: rsshub
-    restart: "on-failure:2"
-    mem_limit: 384m
-    memswap_limit: 384m
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'node -e "require(''http'').get(''http://localhost:1200/'', r => process.exit(r.statusCode === 200 ? 0 : 1)).on(''error'', () => process.exit(1))"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    environment:
-      - TZ=${TZ}
-      - NODE_OPTIONS=--max-old-space-size=320
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.rsshub.rule=Host(`rsshub.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.rsshub.entrypoints=websecure"
-      - "traefik.http.services.rsshub.loadbalancer.server.port=1200"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - tools
-      - all
-
   # FreshRSS - RSS Feed Reader
   freshrss:
     image: freshrss/freshrss:latest
@@ -718,128 +686,6 @@ services:
       - "traefik.docker.network=traefik_net"
       # Public : CrowdSec (OIDC géré directement par FreshRSS)
       - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@file"
-    profiles:
-      - tools
-      - all
-
-  # IT-Tools - Boîte à outils dev (offline, 100% statique côté client)
-  it-tools:
-    image: corentinth/it-tools:latest
-    container_name: it-tools
-    restart: "on-failure:2"
-    mem_limit: 64m
-    memswap_limit: 64m
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    environment:
-      - TZ=${TZ}
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.it-tools.rule=Host(`it.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.it-tools.entrypoints=websecure"
-      - "traefik.http.services.it-tools.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-    profiles:
-      - tools
-      - all
-
-  # ChangeDetection.io - Surveillance de pages web + notifications au changement
-  changedetection:
-    image: ghcr.io/dgtlmoon/changedetection.io:latest
-    container_name: changedetection
-    restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen(''http://127.0.0.1:5000/'',timeout=5).status < 500 else 1)"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    environment:
-      - TZ=${TZ}
-      # Base URL pour que les liens dans les notifications pointent sur le bon hôte
-      - BASE_URL=https://changedetection.lan.${DOMAIN_BASE}
-      # Décommenter + activer le sidecar navigateur ci-dessous pour les pages JS
-      # - PLAYWRIGHT_DRIVER_URL=ws://changedetection-browser:3000
-    volumes:
-      - changedetection_data:/datastore
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.changedetection.rule=Host(`changedetection.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.changedetection.entrypoints=websecure"
-      - "traefik.http.services.changedetection.loadbalancer.server.port=5000"
-      - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.changedetection.middlewares=authentik-changedetection@docker"
-      - "traefik.http.middlewares.authentik-changedetection.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-changedetection.forwardauth.trustForwardHeader=true"
-    profiles:
-      - tools
-      - all
-
-  # Papra - Gestion documentaire (archivage, recherche, tags)
-  papra:
-    image: ghcr.io/papra-hq/papra:latest
-    container_name: papra
-    restart: "on-failure:2"
-    mem_limit: 1g
-    memswap_limit: 1g
-    depends_on:
-      authentik-server:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          'node -e "fetch(''http://127.0.0.1:1221/api/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    # AUTH_PROVIDERS_CUSTOMS (client OIDC Authentik) fourni par Terraform
-    # (cf. terraform/authentik/generated/papra.env)
-    env_file:
-      - ./terraform/authentik/generated/papra.env
-    environment:
-      - TZ=${TZ}
-      # Sert aussi d'origine de confiance (protection CSRF)
-      - APP_BASE_URL=https://doc.lan.${DOMAIN_BASE}
-      - AUTH_SECRET=${PAPRA_AUTH_SECRET:?papra auth secret required}
-      # SSO uniquement : la connexion se fait via Authentik
-      - AUTH_PROVIDERS_EMAIL_IS_ENABLED=false
-      # Comptes provisionnés à la 1re connexion OIDC : réactiver temporairement pour en ajouter un
-      - AUTH_IS_REGISTRATION_ENABLED=false
-      - AUTH_SHOW_LEGAL_LINKS=false
-      # OCR tesseract.js : anglais + français
-      - DOCUMENTS_OCR_LANGUAGES=eng,fra
-    volumes:
-      - papra_data:/app/app-data
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.papra.rule=Host(`doc.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.papra.entrypoints=websecure"
-      - "traefik.http.services.papra.loadbalancer.server.port=1221"
-      - "traefik.docker.network=traefik_net"
-      # Privé (tailnet), OIDC géré directement par Papra : pas de forward auth
     profiles:
       - tools
       - all
@@ -1245,9 +1091,3 @@ volumes:
   # Jellystat
   jellystat_postgres_data:
   jellystat_backup_data:
-
-  # ChangeDetection.io
-  changedetection_data:
-
-  # Papra
-  papra_data:

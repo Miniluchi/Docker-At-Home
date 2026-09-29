@@ -11,7 +11,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 - **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat
 - **devtools** — SonarQube, Authentik
 - **security** — CrowdSec
-- **tools** — RSSHub, FreshRSS, Papra
+- **tools** — FreshRSS
 - **all** — Every service
 
 > The PostgreSQL databases (Authentik, Jellystat, SonarQube) start with their parent service.
@@ -102,9 +102,7 @@ docker compose --profile media restart
 
 ### 🧪 tools
 
-- **RSSHub** — RSS feed generator for sites that don't provide one
 - **FreshRSS** — RSS aggregator (OIDC SSO via Authentik)
-- **Papra** — Document management on `doc.lan.${DOMAIN_BASE}` (OIDC SSO via Authentik)
 
 ## 📂 Media layout
 
@@ -164,7 +162,7 @@ Notes:
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
-`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`, `changedetection`
+`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`
 
 > **Homepage** left this list: since v2.0 it authenticates on its own (`HOMEPAGE_AUTH_ENABLED` + `HOMEPAGE_OIDC_*`), so it uses a regular OIDC provider (`homepage.tf`) instead of the outpost. Access is still gated on the `homepage-access` group.
 
@@ -195,7 +193,6 @@ API clients send an API key, not an Authentik session, so Forward Auth would blo
 
 - **Portainer** — OIDC (Authentik side managed by Terraform, OAuth fields entered in Portainer's UI, see below)
 - **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
-- **Papra** — OIDC (fully managed by Terraform; email/password login disabled)
 - **qui** — OIDC (fully managed by Terraform; built-in login disabled, access gated on the `qui-access` group)
 - **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group)
 - **Jellyfin** — OIDC via the SSO plugin (manual)
@@ -236,7 +233,7 @@ Two independent modules under `terraform/`:
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
 | `shared.tf`                                        | Shared data sources (flows, default OIDC scopes)                                                                                                                                |
-| `freshrss.tf`, `portainer.tf`, `papra.tf`, `homepage.tf`, `qui.tf`, `wud.tf` | OIDC providers + applications (+ generated env file)                                                                                             |
+| `freshrss.tf`, `portainer.tf`, `homepage.tf`, `qui.tf`, `wud.tf` | OIDC providers + applications (+ generated env file)                                                                                             |
 | `proxy_forwardauth.tf`                             | Per service: proxy provider (`forward_single`), application, `<service>-access` group, policy binding                                                                            |
 | `outpost.tf`                                       | Embedded outpost; all proxy providers attached automatically                                                                                                                    |
 
