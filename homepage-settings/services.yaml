@@ -51,6 +51,11 @@
         description: WebUI qBittorrent
         server: my-docker
         container: qui
+        widget:
+          type: qbittorrent
+          url: http://gluetun:8080
+          username: "{{HOMEPAGE_VAR_QBT_USER}}"
+          password: "{{HOMEPAGE_VAR_QBT_PASSWORD}}"
 
 - Infrastructure:
     - Portainer:
@@ -65,6 +70,11 @@
         description: Mises à jour des images
         server: my-docker
         container: wud
+        widget:
+          type: whatsupdocker
+          url: http://wud:3000
+          username: homepage
+          password: "{{HOMEPAGE_VAR_WUD_PASSWORD}}"
     - Authentik:
         href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
         icon: authentik.png
