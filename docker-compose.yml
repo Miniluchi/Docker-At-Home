@@ -48,6 +48,9 @@ services:
       - "--ping=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      # IP client réelle transmise par HAProxy natif (haproxy/haproxy.cfg) via la passerelle traefik_net
+      - "--entrypoints.web.proxyProtocol.trustedIPs=192.168.97.1/32"
+      - "--entrypoints.websecure.proxyProtocol.trustedIPs=192.168.97.1/32"
       - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.provider=ovh"
       - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
       - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
@@ -73,8 +76,8 @@ services:
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
       - "--providers.file.watch=true"
     ports:
-      - 80:80
-      - 443:443
+      - 127.0.0.1:8080:80
+      - 127.0.0.1:8443:443
     extra_hosts:
       - "host.docker.internal:host-gateway" # A TESTER
     volumes:

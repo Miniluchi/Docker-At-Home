@@ -20,6 +20,16 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 Only **Jellyfin**, **Seerr**, **Authentik** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and Authentik SSO (Forward Auth, or native OIDC where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
+### 🛡️ Real client IPs (HAProxy)
+
+OrbStack's port forwarding rewrites the source IP, which would blind CrowdSec (every visitor shows up as the `traefik_net` gateway). A native HAProxy on macOS therefore owns `:80`/`:443` and relays raw TCP to Traefik on `127.0.0.1:8080`/`8443` with PROXY protocol v2; Traefik only trusts that header from `192.168.97.1`. Config: [`haproxy/haproxy.cfg`](haproxy/haproxy.cfg).
+
+```bash
+brew install haproxy
+ln -sf "$PWD/haproxy/haproxy.cfg" /opt/homebrew/etc/haproxy.cfg
+brew services start haproxy   # launchd, starts at login like OrbStack
+```
+
 ## 🚀 Quick start
 
 1. **Configuration**
