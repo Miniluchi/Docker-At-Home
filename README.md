@@ -34,8 +34,11 @@ brew services start haproxy   # launchd, starts at login like OrbStack
 
 1. **Configuration**
 
+   Secrets live in Proton Pass (vault `Docker-At-Home`); `.env.tpl` references them and generates `.env`:
+
    ```bash
-   cp .env.example .env
+   pass-cli login
+   pass-cli inject -i .env.tpl -o .env --force
    ```
 
 2. **Start everything**
