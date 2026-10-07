@@ -384,7 +384,10 @@ services:
       # Retour à OpenVPN : VPN_TYPE=openvpn + décommenter
       # - OPENVPN_USER=${PROTON_OPENVPN_USER}
       # - OPENVPN_PASSWORD=${PROTON_OPENVPN_PASSWORD}
-      - SERVER_COUNTRIES=Netherlands
+      # Netherlands retiré le 2026-10-05 : pool port-forwarding NL en panne côté ProtonVPN
+      # (boucle de restart infinie, healthcheck DNS/TLS en échec sur 6 serveurs différents,
+      # confirmé non lié à notre config MTU/WireGuard — Switzerland stable immédiatement)
+      - SERVER_COUNTRIES=Switzerland
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
