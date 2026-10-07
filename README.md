@@ -117,6 +117,10 @@ docker compose --profile media restart
 
 - **FreshRSS** — RSS aggregator (OIDC SSO via Authentik)
 
+### 🤖 ai
+
+- **OpenClaw** — Personal AI assistant reached over WhatsApp (dedicated number, sender allowlist), headless Chromium. Claude subscription (Sonnet, adaptive thinking; Haiku for utility and heartbeats), native LM Studio as fallback (`host.docker.internal:1234`). Control UI on `openclaw.lan.${DOMAIN_BASE}` (Authentik + gateway token). Isolated on `openclaw_net` (shared with Traefik only), no `docker.sock`, no host binds ([openclaw/openclaw](https://github.com/openclaw/openclaw))
+
 ## 📂 Media layout
 
 Unified layout under `${MEDIA_PATH}`:
@@ -175,7 +179,7 @@ Notes:
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
-`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`
+`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`, `openclaw`
 
 > **Homepage** left this list: since v2.0 it authenticates on its own (`HOMEPAGE_AUTH_ENABLED` + `HOMEPAGE_OIDC_*`), so it uses a regular OIDC provider (`homepage.tf`) instead of the outpost. Access is still gated on the `homepage-access` group.
 
@@ -298,6 +302,7 @@ terraform apply
 - ⚠️ **Single point of failure (assumed)**: if Authentik is down, every Forward Auth / OIDC **web UI** is inaccessible; the `/api` routes stay up
 - ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Authentik — mitigated by the tailnet boundary
 - ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Authentik and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
+- ⚠️ **OpenClaw** can still reach the Mac's own services (OrbStack forwards `host.docker.internal`, even to localhost-only listeners), the LAN, and every Traefik route including `*.lan` (via `traefik` or `host.docker.internal:8443`): the tailnet is not a boundary for it, Authentik and the services' own keys are. Web pages it reads can carry prompt injection, so it gets no `docker.sock`, no host binds and no access to the other containers.
 
 **Recommendations**:
 

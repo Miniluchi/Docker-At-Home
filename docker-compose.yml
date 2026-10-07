@@ -6,6 +6,7 @@
 # - devtools       : Developer tools (SonarQube, Authentik)
 # - security       : Security (CrowdSec + Traefik bouncer)
 # - tools          : Tools (FreshRSS)
+# - ai             : AI assistant (OpenClaw)
 # - all            : All services
 #
 # The PostgreSQL databases (Authentik, Jellystat, SonarQube) start with their
@@ -87,7 +88,10 @@ services:
       - traefik_logs:/var/log/traefik
       - ./traefik-dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
-      - traefik_net
+      # gw_priority : la passerelle de traefik_net doit rester celle des ports publiés (trustedIPs HAProxy)
+      traefik_net:
+        gw_priority: 1
+      openclaw_net:
     labels:
       - "wud.trigger.exclude=docker.update"
     profiles:
@@ -718,6 +722,56 @@ services:
       - media
       - all
 
+  # OpenClaw - Assistant IA (WhatsApp, navigateur headless, modèle LM Studio natif)
+  # Isolé : réseau dédié partagé avec Traefik seul, pas de docker.sock ni de bind hôte
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:latest-browser
+    container_name: openclaw
+    restart: unless-stopped
+    mem_limit: 4g
+    memswap_limit: 4g
+    shm_size: 512m
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "dist/docker-healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command: ["node", "openclaw.mjs", "gateway", "--bind", "lan", "--port", "18789"]
+    environment:
+      - TZ=${TZ}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_STATE_DIR=/home/node/.openclaw
+    volumes:
+      - openclaw_state:/home/node/.openclaw
+    extra_hosts:
+      # LM Studio natif (http://host.docker.internal:1234/v1)
+      - "host.docker.internal:host-gateway"
+    networks:
+      - openclaw_net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openclaw.rule=Host(`openclaw.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.openclaw.entrypoints=websecure"
+      - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
+      - "traefik.docker.network=openclaw_net"
+      # Privé (tailnet) + Authentik, puis token du gateway
+      - "traefik.http.routers.openclaw.middlewares=authentik-openclaw@docker"
+      - "traefik.http.middlewares.authentik-openclaw.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.authentik-openclaw.forwardauth.trustForwardHeader=true"
+      # MAJ manuelles (openclaw doctor --fix après chaque version)
+      - "wud.trigger.exclude=docker.update"
+    profiles:
+      - ai
+      - all
+
   # PostgreSQL Authentik - Base de données dédiée
   authentik-db:
     image: postgres:16-alpine
@@ -1045,6 +1099,11 @@ networks:
   traefik_net:
     name: traefik_net
     external: true
+  openclaw_net:
+    name: openclaw_net
+    ipam:
+      config:
+        - subnet: 172.30.50.0/24
 
 volumes:
   # Traefik
@@ -1104,3 +1163,6 @@ volumes:
   # Jellystat
   jellystat_postgres_data:
   jellystat_backup_data:
+
+  # OpenClaw (config, identifiants WhatsApp, workspace, profil navigateur)
+  openclaw_state:

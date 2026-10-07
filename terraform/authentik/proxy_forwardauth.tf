@@ -27,6 +27,7 @@ locals {
     prowlarr  = { display = "Prowlarr", host = "prowlarr" }
     jellystat = { display = "Jellystat", host = "jellystat" }
     glances   = { display = "Glances", host = "glances" }
+    openclaw  = { display = "OpenClaw", host = "openclaw" }
   }
 }
 

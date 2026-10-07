@@ -110,6 +110,12 @@
         description: Lecteur RSS
         server: my-docker
         container: freshrss
+    - OpenClaw:
+        href: https://openclaw.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
+        icon: openclaw.png
+        description: Assistant IA
+        server: my-docker
+        container: openclaw
 
 - Metriques:
     - CPU:
