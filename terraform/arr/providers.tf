@@ -19,7 +19,7 @@ terraform {
 }
 
 # URL internes (nom de conteneur sur traefik_net), jamais les URL publiques
-# Traefik (interceptées par le Forward Auth Authentik).
+# Traefik (interceptées par le Forward Auth Tinyauth).
 provider "radarr" {
   url     = var.radarr_url
   api_key = var.radarr_api_key

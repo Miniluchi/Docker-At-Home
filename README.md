@@ -6,19 +6,19 @@ Self-hosted Docker stack for home services, organised by functional profiles.
 
 A single `docker-compose.yml` uses **profiles** to group services:
 
-- **infrastructure** — Traefik, Tailscale, Portainer, WUD, Authentik, Homepage, CrowdSec
+- **infrastructure** — Traefik, Tailscale, Portainer, WUD, Pocket ID, Tinyauth, Homepage, CrowdSec
 - **dashboard** — Homepage
 - **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat
-- **devtools** — SonarQube, Authentik
+- **devtools** — SonarQube, Pocket ID, Tinyauth
 - **security** — CrowdSec
 - **tools** — FreshRSS
 - **all** — Every service
 
-> The PostgreSQL databases (Authentik, Jellystat, SonarQube) start with their parent service.
+> The PostgreSQL databases (Jellystat, SonarQube) start with their parent service.
 
 ### 🌐 Public vs private (Tailscale)
 
-Only **Jellyfin**, **Seerr**, **Authentik** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and Authentik SSO (Forward Auth, or native OIDC where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
+Only **Jellyfin**, **Seerr**, **Pocket ID** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
 ### 🛡️ Real client IPs (HAProxy)
 
@@ -79,16 +79,16 @@ docker compose --profile media restart
 
 - **Traefik** — Reverse proxy with automatic SSL (Let's Encrypt, DNS-01 via OVH)
 - **Tailscale** — Sidecar node `dah-proxy` sharing Traefik's netns; entry point of the private zone
-- **Portainer** — Docker management UI (OIDC SSO via Authentik)
-- **WUD** — Daily image update scan with automatic updates after a 1-day cool-down; infra (Traefik, Tailscale, CrowdSec, Authentik, PostgreSQL, Gluetun) is excluded via the `wud.trigger.exclude=docker.update` label ([getwud/wud](https://github.com/getwud/wud))
-- **Authentik** — SSO / Identity Provider (OIDC, OAuth2, Forward Auth), dedicated PostgreSQL
-- **Authentik Worker** — Drains Authentik's task queue (blueprints, outposts, emails, certificates); without it the queue is never consumed
-- **Homepage** — Landing dashboard on `lan.${DOMAIN_BASE}`, native OIDC login against Authentik
+- **Portainer** — Docker management UI (OIDC SSO via Pocket ID)
+- **WUD** — Daily image update scan with automatic updates after a 1-day cool-down; infra (Traefik, Tailscale, CrowdSec, Pocket ID, Tinyauth, PostgreSQL, Gluetun) is excluded via the `wud.trigger.exclude=docker.update` label ([getwud/wud](https://github.com/getwud/wud))
+- **Pocket ID** — OIDC identity provider (passkeys), single user/group directory (SQLite)
+- **Tinyauth** — Traefik Forward Auth, login delegated to Pocket ID
+- **Homepage** — Landing dashboard on `lan.${DOMAIN_BASE}`, native OIDC login against Pocket ID
 - **CrowdSec** — Intrusion detection; feeds the Traefik bouncer middleware on the public routers
 
 ### 📊 dashboard
 
-- **Homepage** — Dashboard with customisable widgets, protected by Authentik SSO
+- **Homepage** — Dashboard with customisable widgets, protected by Pocket ID SSO
 
 ### 🎬 media
 
@@ -107,19 +107,19 @@ docker compose --profile media restart
 ### 🧰 devtools
 
 - **SonarQube** — Code quality / static analysis (dedicated PostgreSQL)
-- **Authentik** — see _infrastructure_
+- **Pocket ID**, **Tinyauth** — see _infrastructure_
 
 ### 🛡️ security
 
-- **CrowdSec** — Behaviour-based intrusion detection; blocks flagged IPs on the public routers (jellyfin/seerr/auth/rss)
+- **CrowdSec** — Behaviour-based intrusion detection; blocks flagged IPs on the public routers (jellyfin/seerr/id/rss)
 
 ### 🧪 tools
 
-- **FreshRSS** — RSS aggregator (OIDC SSO via Authentik)
+- **FreshRSS** — RSS aggregator (OIDC SSO via Pocket ID)
 
 ### 🤖 ai
 
-- **OpenClaw** — Personal AI assistant reached over WhatsApp (dedicated number, sender allowlist), headless Chromium. Claude subscription (Sonnet, adaptive thinking; Haiku for utility and heartbeats), native LM Studio as fallback (`host.docker.internal:1234`). Control UI on `openclaw.lan.${DOMAIN_BASE}` (Authentik + gateway token). Isolated on `openclaw_net` (shared with Traefik only), no `docker.sock`, no host binds ([openclaw/openclaw](https://github.com/openclaw/openclaw))
+- **OpenClaw** — Personal AI assistant reached over WhatsApp (dedicated number, sender allowlist), headless Chromium. Claude subscription (Sonnet, adaptive thinking; Haiku for utility and heartbeats), native LM Studio as fallback (`host.docker.internal:1234`). Control UI on `openclaw.lan.${DOMAIN_BASE}` (Tinyauth + gateway token). Isolated on `openclaw_net` (shared with Traefik only), no `docker.sock`, no host binds ([openclaw/openclaw](https://github.com/openclaw/openclaw))
 
 ## 📂 Media layout
 
@@ -166,34 +166,24 @@ Notes:
 - Ad muting does not work when the Apple TV audio goes to a speaker over AirPlay.
 - The first unskippable seconds of an ad still play (muted).
 
-## 🔐 SSO with Authentik
+## 🔐 SSO with Pocket ID + Tinyauth
 
-**Authentik** provides single sign-on for the stack:
+- **Pocket ID** (`https://id.${DOMAIN_BASE}`) — OIDC provider, passkey login, single source of users and groups. Admin created at `/setup` on first start.
+- **Tinyauth** (`tinyauth.lan.${DOMAIN_BASE}`) — Forward Auth for apps without native SSO; it has no local users and redirects straight to Pocket ID.
 
-- **OIDC** — for apps with native support
-- **OAuth2** — for modern apps
-- **SAML** — for enterprise apps
-- **Forward Auth** — for apps without native SSO, via Traefik's `forwardauth` middleware
-
-### Forward Auth (via Traefik → embedded outpost)
+### Forward Auth (Traefik → Tinyauth)
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
 `radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`, `openclaw`
 
-> **Homepage** left this list: since v2.0 it authenticates on its own (`HOMEPAGE_AUTH_ENABLED` + `HOMEPAGE_OIDC_*`), so it uses a regular OIDC provider (`homepage.tf`) instead of the outpost. Access is still gated on the `homepage-access` group.
+Routers use the `tinyauth@docker` middleware (`http://tinyauth:3000/api/auth/traefik`). Per-app rules are `TINYAUTH_APPS_<APP>_CONFIG_DOMAIN` / `_OAUTH_GROUPS` variables on the `tinyauth` service (no Docker socket). An app without a rule is open to any account allowed by the `tinyauth` client.
 
-The Traefik middlewares all point at the embedded outpost:
+> **Arr services**: Radarr, Sonarr and Prowlarr have their internal auth disabled (`<AuthenticationMethod>External</AuthenticationMethod>`) and rely entirely on Tinyauth for their **web UI**. If Tinyauth or Pocket ID is down the UI is unreachable but secured.
 
-```
-http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
-```
+### API routes outside Forward Auth
 
-> **Arr services**: Radarr, Sonarr and Prowlarr have their internal auth disabled (`<AuthenticationMethod>External</AuthenticationMethod>`) and rely entirely on Authentik for their **web UI**. If Authentik is down the UI is unreachable but secured.
-
-### API routes outside Authentik
-
-API clients send an API key, not an Authentik session, so Forward Auth would block them. A higher-priority router exposes each service's API path bypassing Authentik, on the private hostname:
+API clients send an API key, not a session, so Forward Auth would block them. A higher-priority router exposes each service's API path bypassing Tinyauth, on the private hostname:
 
 | Service     | Router            | Rule                                          | Auth on the API                     |
 | ----------- | ----------------- | --------------------------------------------- | ----------------------------------- |
@@ -202,70 +192,71 @@ API clients send an API key, not an Authentik session, so Forward Auth would blo
 | Prowlarr    | `prowlarr-api`    | `Host(prowlarr.lan.…) && PathPrefix(/api)`    | `X-Api-Key`                         |
 | Jellystat   | `jellystat-api`   | `Host(jellystat.lan.…) && PathPrefix(/api)`   | `x-api-token`                       |
 
-> `priority=100` makes the `/api` prefix win over the catch-all UI router. These routes stay reachable when Authentik is down.
+> `priority=100` makes the `/api` prefix win over the catch-all UI router. These routes stay reachable when Tinyauth is down.
 
 > **qBittorrent** has no Traefik route: its UI is served by **qui** (`qui.lan.…`), and native clients (Helmarr) go through qui's client proxy (`/proxy/<key>`). qBittorrent stays reachable internally at `gluetun:8080`, so keep its WebUI auth **enabled**.
 
 ### Native OIDC
 
-- **Portainer** — OIDC (Authentik side managed by Terraform, OAuth fields entered in Portainer's UI, see below)
+Issuer `https://id.${DOMAIN_BASE}` (discovery `/.well-known/openid-configuration`); add the `groups` scope where group claims are needed.
+
+- **Portainer** — OIDC (client managed by Terraform, OAuth fields entered in Portainer's UI, see below)
 - **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
 - **qui** — OIDC (fully managed by Terraform; built-in login disabled, access gated on the `qui-access` group)
-- **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group)
+- **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group; variables keep the `WUD_AUTH_OIDC_AUTHENTIK_*` prefix to keep the callback URL)
+- **Homepage** — OIDC (fully managed by Terraform; access gated on the `homepage-access` group)
+- **Seerr** — OIDC (client created manually in Pocket ID)
 - **Jellyfin** — OIDC via the SSO plugin (manual)
+- **SonarQube** — local login (no SAML in Pocket ID)
 
-### Access
-
-- **URL**: `https://auth.${DOMAIN_BASE}`
-- **Bootstrap admin**: `AUTHENTIK_BOOTSTRAP_EMAIL` / `AUTHENTIK_BOOTSTRAP_PASSWORD` in `.env`
+> Pocket ID asks each user to consent once per client.
 
 ### Portainer OIDC — UI configuration
 
-Portainer does not read OIDC settings from environment variables. Terraform creates the Authentik provider/application and writes the endpoints to `terraform/authentik/generated/portainer.env`.
+Portainer does not read OIDC settings from environment variables. Terraform creates the client and writes the values to `terraform/pocketid/generated/portainer.env`.
 
 In Portainer → **Settings → Authentication → OAuth**:
 
-| Field              | Value                                                              |
-| ------------------ | ------------------------------------------------------------------ |
-| Provider           | Custom                                                             |
-| Client ID / Secret | from Authentik (see `generated/portainer.env`)                     |
-| Authorization URL  | `https://auth.${DOMAIN_BASE}/application/o/authorize/`             |
-| Access token URL   | `https://auth.${DOMAIN_BASE}/application/o/token/`                 |
-| Resource URL       | `https://auth.${DOMAIN_BASE}/application/o/userinfo/`              |
-| Logout URL         | `https://auth.${DOMAIN_BASE}/application/o/portainer/end-session/` |
-| Redirect URL       | `https://portainer.lan.${DOMAIN_BASE}/`                            |
-| User identifier    | `preferred_username` (or `email`)                                  |
-| Scopes             | `email openid profile`                                             |
+| Field              | Value                                                |
+| ------------------ | ---------------------------------------------------- |
+| Provider           | Custom                                               |
+| Client ID / Secret | see `generated/portainer.env`                        |
+| Authorization URL  | `https://id.${DOMAIN_BASE}/authorize`                |
+| Access token URL   | `https://id.${DOMAIN_BASE}/api/oidc/token`           |
+| Resource URL       | `https://id.${DOMAIN_BASE}/api/oidc/userinfo`        |
+| Logout URL         | `https://id.${DOMAIN_BASE}/api/oidc/end-session`     |
+| Redirect URL       | `https://portainer.lan.${DOMAIN_BASE}/`              |
+| User identifier    | `preferred_username` (or `email`)                    |
+| Scopes             | `openid email profile`                               |
 
 ## 🧬 Infrastructure as Code (Terraform)
 
 Two independent modules under `terraform/`:
 
-- `terraform/authentik/` — Authentik SSO (provider `goauthentik/authentik`)
+- `terraform/pocketid/` — Pocket ID clients and groups (provider `trozz/pocketid`)
 - `terraform/arr/` — Radarr / Sonarr / Prowlarr (providers `devopsarr/{radarr,sonarr,prowlarr}`)
 
-### `terraform/authentik/`
+### `terraform/pocketid/`
 
-| File                                               | Purpose                                                                                                                                                                         |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Authentik URL & API token)                                                                                                                               |
-| `shared.tf`                                        | Shared data sources (flows, default OIDC scopes)                                                                                                                                |
-| `freshrss.tf`, `portainer.tf`, `homepage.tf`, `qui.tf`, `wud.tf` | OIDC providers + applications (+ generated env file)                                                                                             |
-| `proxy_forwardauth.tf`                             | Per service: proxy provider (`forward_single`), application, `<service>-access` group, policy binding                                                                            |
-| `outpost.tf`                                       | Embedded outpost; all proxy providers attached automatically                                                                                                                    |
+| File                                               | Purpose                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------ |
+| `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Pocket ID URL & API key, `domain_base`)           |
+| `freshrss.tf`, `portainer.tf`, `homepage.tf`, `qui.tf`, `wud.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
+| `forward_auth.tf`                                  | `<service>-access` groups + the single `tinyauth` client (`generated/tinyauth.env`) |
 
-The embedded outpost is a pre-existing singleton adopted through an `import` block (requires **Terraform ≥ 1.6**), so no manual `terraform import` is needed on a fresh server.
+`client_secret` is only readable at creation and lives in the state: keep `terraform.tfstate` out of git (it is).
 
-**Usage**:
+**Usage** (from a container on `traefik_net`, the public URL is not reachable from the host):
 
 ```bash
-cd terraform/authentik
-terraform init
-terraform plan
-terraform apply
+cd terraform/pocketid
+docker run --rm -it --network traefik_net -v "$PWD":/work -w /work \
+  --entrypoint sh hashicorp/terraform:latest -c "terraform init && terraform apply"
 ```
 
-> After `apply`, add your user to the relevant **`<service>-access`** groups, otherwise Forward Auth denies access.
+> After `apply`, add users to the relevant **`<service>-access`** groups in Pocket ID, otherwise access is denied.
+
+> Fresh `pocketid_data` volume: the distroless image runs as uid 65532, so `chown 65532:65532` the volume once before the first start.
 
 ### `terraform/arr/`
 
@@ -297,18 +288,18 @@ terraform apply
 ## 🔒 Security notes
 
 - ✅ Private services reachable **only through the tailnet** (device identity = first auth layer)
-- ✅ Centralised authentication, unified users/groups, native MFA, centralised auth logs
-- ✅ CrowdSec + Traefik bouncer on the remaining public edge (jellyfin/seerr/auth/rss)
-- ⚠️ **Single point of failure (assumed)**: if Authentik is down, every Forward Auth / OIDC **web UI** is inaccessible; the `/api` routes stay up
-- ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Authentik — mitigated by the tailnet boundary
-- ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Authentik and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
-- ⚠️ **OpenClaw** can still reach the Mac's own services (OrbStack forwards `host.docker.internal`, even to localhost-only listeners), the LAN, and every Traefik route including `*.lan` (via `traefik` or `host.docker.internal:8443`): the tailnet is not a boundary for it, Authentik and the services' own keys are. Web pages it reads can carry prompt injection, so it gets no `docker.sock`, no host binds and no access to the other containers.
+- ✅ Centralised authentication, unified users/groups, passkeys, centralised auth logs
+- ✅ CrowdSec + Traefik bouncer on the remaining public edge (jellyfin/seerr/id/rss)
+- ⚠️ **Single point of failure (assumed)**: if Pocket ID is down, every Forward Auth / OIDC **web UI** is inaccessible (Tinyauth too for Forward Auth); the `/api` routes stay up
+- ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Tinyauth — mitigated by the tailnet boundary
+- ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Tinyauth and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
+- ⚠️ **OpenClaw** can still reach the Mac's own services (OrbStack forwards `host.docker.internal`, even to localhost-only listeners), the LAN, and every Traefik route including `*.lan` (via `traefik` or `host.docker.internal:8443`): the tailnet is not a boundary for it, Tinyauth/Pocket ID and the services' own keys are. Web pages it reads can carry prompt injection, so it gets no `docker.sock`, no host binds and no access to the other containers.
 
 **Recommendations**:
 
-1. Monitor Authentik (a healthcheck is configured)
+1. Monitor Pocket ID and Tinyauth (healthchecks are configured)
 2. Back up the PostgreSQL databases regularly
-3. Alert on Authentik downtime
+3. Alert on Pocket ID downtime
 4. Periodically test a full-stack startup
 
 ### Disabling internal auth on Arr services

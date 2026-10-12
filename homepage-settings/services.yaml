@@ -75,12 +75,12 @@
           url: http://wud:3000
           username: homepage
           password: "{{HOMEPAGE_VAR_WUD_PASSWORD}}"
-    - Authentik:
-        href: https://auth.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: authentik.png
+    - Pocket ID:
+        href: https://id.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: pocket-id.png
         description: SSO / Identity Provider
         server: my-docker
-        container: authentik-server
+        container: pocket-id
     - Glances:
         href: https://glances.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: glances.png

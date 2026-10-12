@@ -28,15 +28,6 @@ DOMAIN_BASE={{ pass://Docker-At-Home/General/DOMAIN_BASE }}
 # Media - Chemin racine pour tous les médias (downloads, films, séries)
 MEDIA_PATH={{ pass://Docker-At-Home/General/MEDIA_PATH }}
 
-# Authentik - SSO/Identity Provider
-AUTHENTIK_POSTGRES_USER={{ pass://Docker-At-Home/Authentik/AUTHENTIK_POSTGRES_USER }}
-AUTHENTIK_POSTGRES_PASSWORD={{ pass://Docker-At-Home/Authentik/AUTHENTIK_POSTGRES_PASSWORD }}
-AUTHENTIK_POSTGRES_DB={{ pass://Docker-At-Home/Authentik/AUTHENTIK_POSTGRES_DB }}
-AUTHENTIK_SECRET_KEY={{ pass://Docker-At-Home/Authentik/AUTHENTIK_SECRET_KEY }}
-# Admin de bootstrap créé au 1er démarrage (cf. README « Bootstrap admin »)
-AUTHENTIK_BOOTSTRAP_PASSWORD="{{ pass://Docker-At-Home/Authentik/AUTHENTIK_BOOTSTRAP_PASSWORD }}"
-AUTHENTIK_BOOTSTRAP_EMAIL={{ pass://Docker-At-Home/Authentik/AUTHENTIK_BOOTSTRAP_EMAIL }}
-
 # Pocket ID - Fournisseur OIDC (clé de chiffrement des données, >= 16 caractères)
 POCKETID_ENCRYPTION_KEY={{ pass://Docker-At-Home/PocketID/POCKETID_ENCRYPTION_KEY }}
 

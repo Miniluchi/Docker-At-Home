@@ -1,15 +1,15 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, Portainer, WUD, Authentik, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Portainer, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat)
-# - devtools       : Developer tools (SonarQube, Authentik)
+# - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
 # - security       : Security (CrowdSec + Traefik bouncer)
 # - tools          : Tools (FreshRSS)
 # - ai             : AI assistant (OpenClaw)
 # - all            : All services
 #
-# The PostgreSQL databases (Authentik, Jellystat, SonarQube) start with their
+# The PostgreSQL databases (Jellystat, SonarQube) start with their
 # parent service and have no dedicated profile.
 #
 # Usage:
@@ -762,128 +762,6 @@ services:
       - ai
       - all
 
-  # PostgreSQL Authentik - Base de données dédiée
-  authentik-db:
-    image: postgres:16-alpine
-    container_name: authentik-db
-    restart: unless-stopped
-    mem_limit: 512m
-    memswap_limit: 512m
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    environment:
-      POSTGRES_USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-      POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD:?authentik database password required}
-      POSTGRES_DB: ${AUTHENTIK_POSTGRES_DB:-authentik}
-      TZ: ${TZ}
-    volumes:
-      - postgres_authentik_data:/var/lib/postgresql/data
-    networks:
-      - traefik_net
-    labels:
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^16-alpine$$'
-      - "wud.watch.digest=true"
-    profiles:
-      - infrastructure
-      - devtools
-      - all
-
-  # Authentik Server - SSO/Identity Provider
-  authentik-server:
-    # Pas de piste LTS chez authentik : ni tag `lts` au registry (seuls `latest`,
-    # `stable` et les versions), ni release longue durée. Cycle ~3 mois, seules la
-    # version courante et la précédente reçoivent les correctifs de sécurité
-    # (2026.8 et 2026.5 à ce jour) — rester sur la dernière est la position la plus
-    # supportée. Le worker doit garder exactement le même tag que le serveur.
-    # NB : authentik ne supporte pas le downgrade de base (migrations non réversibles).
-    image: ghcr.io/goauthentik/server:2026.8.2
-    container_name: authentik-server
-    restart: unless-stopped
-    command: server
-    mem_limit: 1g
-    memswap_limit: 1g
-    depends_on:
-      authentik-db:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    healthcheck:
-      # curl a été retiré de l'image authentik : on utilise le binaire ak intégré
-      test: ["CMD", "ak", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    environment:
-      AUTHENTIK_POSTGRESQL__HOST: authentik-db
-      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key required}
-      TZ: ${TZ}
-    volumes:
-      - authentik_media:/media
-      - authentik_custom_templates:/templates
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.authentik.rule=Host(`auth.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.authentik.entrypoints=websecure"
-      - "traefik.http.services.authentik.loadbalancer.server.port=9000"
-      - "traefik.docker.network=traefik_net"
-      # CrowdSec protection
-      - "traefik.http.routers.authentik.middlewares=crowdsec-bouncer@file"
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^\d{4}\.\d+\.\d+$$'
-    profiles:
-      - infrastructure
-      - devtools
-      - all
-
-  # Authentik Worker - Exécute les tâches de fond (blueprints, outposts, mails,
-  # rotation de certificats). Sans lui la file de tâches Postgres n'est jamais
-  # consommée : les blueprints par défaut (setup MFA TOTP/WebAuthn) ne s'appliquent pas.
-  authentik-worker:
-    # Même tag que authentik-server (cf. note plus haut) : les deux doivent être alignés.
-    image: ghcr.io/goauthentik/server:2026.8.2
-    container_name: authentik-worker
-    restart: unless-stopped
-    command: worker
-    mem_limit: 1g
-    memswap_limit: 1g
-    depends_on:
-      authentik-db:
-        condition: service_healthy
-    networks:
-      - traefik_net
-    healthcheck:
-      test: ["CMD", "ak", "healthcheck"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    environment:
-      AUTHENTIK_POSTGRESQL__HOST: authentik-db
-      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?authentik secret key required}
-      TZ: ${TZ}
-    volumes:
-      - authentik_media:/media
-      - authentik_custom_templates:/templates
-    labels:
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^\d{4}\.\d+\.\d+$$'
-    profiles:
-      - infrastructure
-      - devtools
-      - all
-
   # Pocket ID - Fournisseur OIDC (passkeys), seule base d'utilisateurs/groupes.
   # Clients et groupes gérés par terraform/pocketid.
   pocket-id:
@@ -1216,11 +1094,6 @@ volumes:
   # Pocket ID / Tinyauth
   pocketid_data:
   tinyauth_data:
-
-  # Authentik
-  postgres_authentik_data:
-  authentik_media:
-  authentik_custom_templates:
 
   # SonarQube
   sonarqube_data:

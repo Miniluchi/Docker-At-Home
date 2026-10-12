@@ -10,13 +10,6 @@ filenames:
 labels:
   type: syslog
 ---
-# Logs Authentik via Docker
-source: docker
-container_name:
-  - authentik-server
-labels:
-  type: authentik
----
 # AppSec WAF — listener interrogé par le bouncer Traefik (port 7422)
 appsec_configs:
   - crowdsecurity/appsec-default
