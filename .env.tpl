@@ -39,6 +39,9 @@ JELLYFIN_OIDC_CLIENT_SECRET={{ pass://Docker-At-Home/Jellyfin/JELLYFIN_OIDC_CLIE
 PORTAINER_OIDC_CLIENT_ID={{ pass://Docker-At-Home/Portainer/PORTAINER_OIDC_CLIENT_ID }}
 PORTAINER_OIDC_CLIENT_SECRET={{ pass://Docker-At-Home/Portainer/PORTAINER_OIDC_CLIENT_SECRET }}
 
+# Arcane (clé de chiffrement, openssl rand -hex 32)
+ARCANE_ENCRYPTION_KEY={{ pass://Docker-At-Home/Arcane/ARCANE_ENCRYPTION_KEY }}
+
 # SonarQube
 SONARQUBE_POSTGRES_USER={{ pass://Docker-At-Home/SonarQube/SONARQUBE_POSTGRES_USER }}
 SONARQUBE_POSTGRES_PASSWORD={{ pass://Docker-At-Home/SonarQube/SONARQUBE_POSTGRES_PASSWORD }}

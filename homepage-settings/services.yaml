@@ -64,6 +64,12 @@
         description: Gestion Docker
         server: my-docker
         container: portainer
+    - Arcane:
+        href: https://arcane.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
+        icon: arcane.png
+        description: Gestion Docker
+        server: my-docker
+        container: arcane
     - WUD:
         href: https://wud.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: whats-up-docker.png

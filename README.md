@@ -6,7 +6,7 @@ Self-hosted Docker stack for home services, organised by functional profiles.
 
 A single `docker-compose.yml` uses **profiles** to group services:
 
-- **infrastructure** — Traefik, Tailscale, Portainer, WUD, Pocket ID, Tinyauth, Homepage, CrowdSec
+- **infrastructure** — Traefik, Tailscale, Portainer, Arcane, WUD, Pocket ID, Tinyauth, Homepage, CrowdSec
 - **dashboard** — Homepage
 - **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat
 - **devtools** — SonarQube, Pocket ID, Tinyauth
@@ -80,6 +80,7 @@ docker compose --profile media restart
 - **Traefik** — Reverse proxy with automatic SSL (Let's Encrypt, DNS-01 via OVH)
 - **Tailscale** — Sidecar node `dah-proxy` sharing Traefik's netns; entry point of the private zone
 - **Portainer** — Docker management UI (OIDC SSO via Pocket ID)
+- **Arcane** — Docker management UI, lightweight Portainer alternative (OIDC SSO via Pocket ID)
 - **WUD** — Daily image update scan with automatic updates after a 1-day cool-down; infra (Traefik, Tailscale, CrowdSec, Pocket ID, Tinyauth, PostgreSQL, Gluetun) is excluded via the `wud.trigger.exclude=docker.update` label ([getwud/wud](https://github.com/getwud/wud))
 - **Pocket ID** — OIDC identity provider (passkeys), single user/group directory (SQLite)
 - **Tinyauth** — Traefik Forward Auth, login delegated to Pocket ID
@@ -203,6 +204,7 @@ Issuer `https://id.${DOMAIN_BASE}` (discovery `/.well-known/openid-configuration
 - **Portainer** — OIDC (client managed by Terraform, OAuth fields entered in Portainer's UI, see below)
 - **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
 - **qui** — OIDC (fully managed by Terraform; built-in login disabled, access gated on the `qui-access` group)
+- **Arcane** — OIDC (fully managed by Terraform; admin role and access gated on the `arcane-access` group)
 - **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group; variables keep the `WUD_AUTH_OIDC_AUTHENTIK_*` prefix to keep the callback URL)
 - **Homepage** — OIDC (fully managed by Terraform; access gated on the `homepage-access` group)
 - **Seerr** — OIDC (client created manually in Pocket ID)
@@ -241,7 +243,7 @@ Two independent modules under `terraform/`:
 | File                                               | Purpose                                                                  |
 | -------------------------------------------------- | ------------------------------------------------------------------------ |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Pocket ID URL & API key, `domain_base`)           |
-| `freshrss.tf`, `portainer.tf`, `homepage.tf`, `qui.tf`, `wud.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
+| `freshrss.tf`, `portainer.tf`, `homepage.tf`, `qui.tf`, `wud.tf`, `arcane.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
 | `forward_auth.tf`                                  | `<service>-access` groups + the single `tinyauth` client (`generated/tinyauth.env`) |
 
 `client_secret` is only readable at creation and lives in the state: keep `terraform.tfstate` out of git (it is).

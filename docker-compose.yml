@@ -1,6 +1,6 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, Portainer, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Portainer, Arcane, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat)
 # - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
@@ -173,6 +173,55 @@ services:
       - no-new-privileges:true
     environment:
       - TZ=${TZ}
+    depends_on:
+      traefik:
+        condition: service_healthy
+      pocket-id:
+        condition: service_healthy
+    profiles:
+      - infrastructure
+      - all
+
+  # Arcane - Gestion Docker (https://getarcane.app)
+  arcane:
+    image: ghcr.io/getarcaneapp/manager:latest
+    container_name: arcane
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    healthcheck:
+      test: ["CMD", "./arcane", "health", "--timeout", "2s"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    # OIDC_CLIENT_ID / _CLIENT_SECRET / _ISSUER_URL / _ROLE_MAPPINGS fournis par Terraform
+    # (cf. terraform/pocketid/generated/arcane.env)
+    env_file:
+      - ./terraform/pocketid/generated/arcane.env
+    environment:
+      - TZ=${TZ}
+      - APP_URL=https://arcane.lan.${DOMAIN_BASE}
+      - ENCRYPTION_KEY=${ARCANE_ENCRYPTION_KEY}
+      - OIDC_ENABLED=true
+      - OIDC_SCOPES=openid email profile groups
+      - OIDC_GROUPS_CLAIM=groups
+      - OIDC_PROVIDER_NAME=Pocket ID
+      - OIDC_AUTO_REDIRECT_TO_PROVIDER=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane_data:/app/data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.arcane.rule=Host(`arcane.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.arcane.entrypoints=websecure"
+      - "traefik.http.services.arcane.loadbalancer.server.port=3552"
+      - "traefik.docker.network=traefik_net"
+      - "wud.trigger.exclude=docker.update"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       traefik:
         condition: service_healthy
@@ -1069,6 +1118,9 @@ volumes:
 
   # Portainer
   portainer_data:
+
+  # Arcane
+  arcane_data:
 
   # WUD
   wud_store:
