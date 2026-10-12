@@ -37,6 +37,9 @@ AUTHENTIK_SECRET_KEY={{ pass://Docker-At-Home/Authentik/AUTHENTIK_SECRET_KEY }}
 AUTHENTIK_BOOTSTRAP_PASSWORD="{{ pass://Docker-At-Home/Authentik/AUTHENTIK_BOOTSTRAP_PASSWORD }}"
 AUTHENTIK_BOOTSTRAP_EMAIL={{ pass://Docker-At-Home/Authentik/AUTHENTIK_BOOTSTRAP_EMAIL }}
 
+# Pocket ID - Fournisseur OIDC (clé de chiffrement des données, >= 16 caractères)
+POCKETID_ENCRYPTION_KEY={{ pass://Docker-At-Home/PocketID/POCKETID_ENCRYPTION_KEY }}
+
 # Jellyfin
 JELLYFIN_OIDC_CLIENT_ID={{ pass://Docker-At-Home/Jellyfin/JELLYFIN_OIDC_CLIENT_ID }}
 JELLYFIN_OIDC_CLIENT_SECRET={{ pass://Docker-At-Home/Jellyfin/JELLYFIN_OIDC_CLIENT_SECRET }}

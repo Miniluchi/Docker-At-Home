@@ -10,14 +10,14 @@ http:
         - crowdsec-bouncer
 
     # Glances natif (monitoring de l'hôte macOS) — privé (tailnet),
-    # Authentik conservé en défense-en-profondeur, CrowdSec retiré
+    # Tinyauth conservé en défense-en-profondeur, CrowdSec retiré
     glances:
       rule: "Host(`glances.lan.{{ env "DOMAIN_BASE" }}`)"
       entryPoints:
         - websecure
       service: glances
       middlewares:
-        - authentik-glances
+        - tinyauth@docker
 
   services:
     jellyfin:
@@ -31,12 +31,6 @@ http:
           - url: "http://host.docker.internal:61208"
 
   middlewares:
-    # Authentik forward-auth (SSO) pour Glances natif
-    authentik-glances:
-      forwardAuth:
-        address: "http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-        trustForwardHeader: true
-
     crowdsec-bouncer:
       plugin:
         bouncer:

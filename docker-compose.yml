@@ -1,6 +1,6 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, Portainer, WUD, Authentik, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Portainer, WUD, Authentik, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat)
 # - devtools       : Developer tools (SonarQube, Authentik)
@@ -176,7 +176,7 @@ services:
     depends_on:
       traefik:
         condition: service_healthy
-      authentik-server:
+      pocket-id:
         condition: service_healthy
     profiles:
       - infrastructure
@@ -190,7 +190,7 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
     depends_on:
-      authentik-server:
+      pocket-id:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:3000/health || exit 1"]
@@ -199,16 +199,16 @@ services:
       retries: 3
       start_period: 30s
     # WUD_AUTH_OIDC_AUTHENTIK_DISCOVERY / _CLIENTID / _CLIENTSECRET / _ADMINGROUP fournis par Terraform
-    # (cf. terraform/authentik/generated/wud.env)
+    # (cf. terraform/pocketid/generated/wud.env)
     env_file:
-      - ./terraform/authentik/generated/wud.env
+      - ./terraform/pocketid/generated/wud.env
     environment:
       - TZ=${TZ}
       - WUD_PUBLIC_URL=https://wud.lan.${DOMAIN_BASE}
       - WUD_AUTH_OIDC_AUTHENTIK_REDIRECT=true
       - WUD_AUTH_OIDC_AUTHENTIK_DEFAULTROLE=none
-      # Pas de scope "groups" chez Authentik : le claim groups vient du scope profile
-      - WUD_AUTH_OIDC_AUTHENTIK_SCOPE=openid email profile
+      # Préfixe AUTHENTIK conservé (callback /auth/oidc/authentik/cb) ; le provider est Pocket ID
+      - WUD_AUTH_OIDC_AUTHENTIK_SCOPE=openid email profile groups
       # 1 scan/jour (rate limit Docker Hub), conteneurs arrêtés inclus, digest pour les tags mutables
       - WUD_WATCHER_LOCAL_CRON=0 6 * * *
       - WUD_WATCHER_LOCAL_WATCHALL=true
@@ -286,8 +286,8 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     depends_on:
-      authentik-server:
-        condition: service_healthy
+      tinyauth:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
       interval: 30s
@@ -310,11 +310,9 @@ services:
       - "traefik.http.routers.radarr.entrypoints=websecure"
       - "traefik.http.services.radarr.loadbalancer.server.port=7878"
       - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.radarr.middlewares=authentik-radarr@docker"
-      - "traefik.http.middlewares.authentik-radarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-radarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      # Privé (tailnet) : Tinyauth conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.radarr.middlewares=tinyauth@docker"
+      # API hors Tinyauth (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.radarr-api.rule=Host(`radarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.radarr-api.entrypoints=websecure"
       - "traefik.http.routers.radarr-api.service=radarr"
@@ -331,8 +329,8 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     depends_on:
-      authentik-server:
-        condition: service_healthy
+      tinyauth:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
       interval: 30s
@@ -355,11 +353,9 @@ services:
       - "traefik.http.routers.sonarr.entrypoints=websecure"
       - "traefik.http.services.sonarr.loadbalancer.server.port=8989"
       - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.sonarr.middlewares=authentik-sonarr@docker"
-      - "traefik.http.middlewares.authentik-sonarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-sonarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      # Privé (tailnet) : Tinyauth conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.sonarr.middlewares=tinyauth@docker"
+      # API hors Tinyauth (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.sonarr-api.rule=Host(`sonarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.sonarr-api.entrypoints=websecure"
       - "traefik.http.routers.sonarr-api.service=sonarr"
@@ -486,7 +482,7 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
     depends_on:
-      authentik-server:
+      pocket-id:
         condition: service_healthy
       gluetun:
         condition: service_started
@@ -501,9 +497,9 @@ services:
       retries: 3
       start_period: 15s
     # QUI__OIDC_ISSUER / _CLIENT_ID / _CLIENT_SECRET fournis par Terraform
-    # (cf. terraform/authentik/generated/qui.env)
+    # (cf. terraform/pocketid/generated/qui.env)
     env_file:
-      - ./terraform/authentik/generated/qui.env
+      - ./terraform/pocketid/generated/qui.env
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -538,8 +534,8 @@ services:
     mem_limit: 384m
     memswap_limit: 384m
     depends_on:
-      authentik-server:
-        condition: service_healthy
+      tinyauth:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
       interval: 30s
@@ -565,11 +561,9 @@ services:
       - "traefik.http.routers.prowlarr.entrypoints=websecure"
       - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
       - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.prowlarr.middlewares=authentik-prowlarr@docker"
-      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-prowlarr.forwardauth.trustForwardHeader=true"
-      # API hors Authentik (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
+      # Privé (tailnet) : Tinyauth conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.prowlarr.middlewares=tinyauth@docker"
+      # API hors Tinyauth (auth par clé X-Api-Key) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.prowlarr-api.rule=Host(`prowlarr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.prowlarr-api.entrypoints=websecure"
       - "traefik.http.routers.prowlarr-api.service=prowlarr"
@@ -644,11 +638,9 @@ services:
       - "traefik.http.routers.jellystat.entrypoints=websecure"
       - "traefik.http.services.jellystat.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
-      # Privé (tailnet) : Authentik conservé en défense-en-profondeur, CrowdSec retiré
-      - "traefik.http.routers.jellystat.middlewares=authentik-jellystat@docker"
-      - "traefik.http.middlewares.authentik-jellystat.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-jellystat.forwardauth.trustForwardHeader=true"
-      # API + proxy hors Authentik (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr (via tailnet)
+      # Privé (tailnet) : Tinyauth conservé en défense-en-profondeur, CrowdSec retiré
+      - "traefik.http.routers.jellystat.middlewares=tinyauth@docker"
+      # API + proxy hors Tinyauth (auth par clé x-api-token Jellystat) pour clients natifs type Helmarr (via tailnet)
       - "traefik.http.routers.jellystat-api.rule=Host(`jellystat.lan.${DOMAIN_BASE}`) && (PathPrefix(`/api`) || PathPrefix(`/proxy`))"
       - "traefik.http.routers.jellystat-api.entrypoints=websecure"
       - "traefik.http.routers.jellystat-api.service=jellystat"
@@ -665,7 +657,7 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
     depends_on:
-      authentik-server:
+      pocket-id:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "pgrep -f apache2 > /dev/null || exit 1"]
@@ -674,15 +666,15 @@ services:
       retries: 3
       start_period: 30s
     # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET fournis par Terraform
-    # (cf. terraform/authentik/generated/freshrss.env)
+    # (cf. terraform/pocketid/generated/freshrss.env)
     env_file:
-      - ./terraform/authentik/generated/freshrss.env
+      - ./terraform/pocketid/generated/freshrss.env
     environment:
       - TZ=${TZ}
       - CRON_MIN=1,31
-      # OIDC Configuration avec Authentik
+      # OIDC Configuration avec Pocket ID
       - OIDC_ENABLED=1
-      - OIDC_PROVIDER_METADATA_URL=https://auth.${DOMAIN_BASE}/application/o/freshrss/.well-known/openid-configuration
+      - OIDC_PROVIDER_METADATA_URL=https://id.${DOMAIN_BASE}/.well-known/openid-configuration
       - OIDC_X_FORWARDED_HEADERS=X-Forwarded-Proto X-Forwarded-Host
       - OIDC_SCOPES=openid email profile
     volumes:
@@ -732,8 +724,8 @@ services:
     memswap_limit: 4g
     shm_size: 512m
     depends_on:
-      authentik-server:
-        condition: service_healthy
+      tinyauth:
+        condition: service_started
     healthcheck:
       test: ["CMD", "node", "dist/docker-healthcheck.js"]
       interval: 30s
@@ -762,10 +754,8 @@ services:
       - "traefik.http.routers.openclaw.entrypoints=websecure"
       - "traefik.http.services.openclaw.loadbalancer.server.port=18789"
       - "traefik.docker.network=openclaw_net"
-      # Privé (tailnet) + Authentik, puis token du gateway
-      - "traefik.http.routers.openclaw.middlewares=authentik-openclaw@docker"
-      - "traefik.http.middlewares.authentik-openclaw.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik"
-      - "traefik.http.middlewares.authentik-openclaw.forwardauth.trustForwardHeader=true"
+      # Privé (tailnet) + Tinyauth, puis token du gateway
+      - "traefik.http.routers.openclaw.middlewares=tinyauth@docker"
       # MAJ manuelles (openclaw doctor --fix après chaque version)
       - "wud.trigger.exclude=docker.update"
     profiles:
@@ -894,6 +884,104 @@ services:
       - devtools
       - all
 
+  # Pocket ID - Fournisseur OIDC (passkeys), seule base d'utilisateurs/groupes.
+  # Clients et groupes gérés par terraform/pocketid.
+  pocket-id:
+    image: ghcr.io/pocket-id/pocket-id:v2.18.0-distroless
+    container_name: pocket-id
+    restart: unless-stopped
+    read_only: true
+    mem_limit: 256m
+    memswap_limit: 256m
+    environment:
+      - TZ=${TZ}
+      - APP_URL=https://id.${DOMAIN_BASE}
+      - TRUST_PROXY=true
+      - ANALYTICS_DISABLED=true
+      - ENCRYPTION_KEY=${POCKETID_ENCRYPTION_KEY:?pocket-id encryption key required}
+    volumes:
+      - pocketid_data:/app/data
+    healthcheck:
+      test: ["CMD", "/app/pocket-id", "healthcheck"]
+      interval: 1m30s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pocketid.rule=Host(`id.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.pocketid.entrypoints=websecure"
+      - "traefik.http.services.pocketid.loadbalancer.server.port=1411"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.routers.pocketid.middlewares=crowdsec-bouncer@file"
+      - "wud.trigger.exclude=docker.update"
+      - 'wud.tag.include=^v\d+\.\d+\.\d+-distroless$$'
+    profiles:
+      - infrastructure
+      - devtools
+      - all
+
+  # Tinyauth - Forward auth Traefik, login délégué à Pocket ID (pas d'utilisateurs locaux).
+  # Règles d'accès par variables TINYAUTH_APPS_* (pas de docker socket). Une app sans
+  # règle est ouverte à tout compte autorisé par le client "tinyauth" de Pocket ID.
+  tinyauth:
+    image: ghcr.io/tinyauthapp/tinyauth:v5.2.0
+    container_name: tinyauth
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    depends_on:
+      pocket-id:
+        condition: service_healthy
+    # TINYAUTH_OAUTH_PROVIDERS_POCKETID_CLIENTID / _CLIENTSECRET fournis par Terraform
+    # (cf. terraform/pocketid/generated/tinyauth.env)
+    env_file:
+      - ./terraform/pocketid/generated/tinyauth.env
+    environment:
+      - TZ=${TZ}
+      # Cookie posé sur le parent de l'APPURL (.lan.<domaine>) : session partagée entre *.lan
+      - TINYAUTH_APPURL=https://tinyauth.lan.${DOMAIN_BASE}
+      - TINYAUTH_AUTH_SESSIONEXPIRY=3600
+      - TINYAUTH_AUTH_TRUSTEDPROXIES=192.168.97.0/24
+      - TINYAUTH_OAUTH_AUTOREDIRECT=pocketid
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_NAME=Pocket ID
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_AUTHURL=https://id.${DOMAIN_BASE}/authorize
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_TOKENURL=https://id.${DOMAIN_BASE}/api/oidc/token
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_USERINFOURL=https://id.${DOMAIN_BASE}/api/oidc/userinfo
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_REDIRECTURL=https://tinyauth.lan.${DOMAIN_BASE}/api/oauth/callback/pocketid
+      - TINYAUTH_OAUTH_PROVIDERS_POCKETID_SCOPES=openid email profile groups
+      - TINYAUTH_APPS_RADARR_CONFIG_DOMAIN=radarr.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_RADARR_OAUTH_GROUPS=radarr-access
+      - TINYAUTH_APPS_SONARR_CONFIG_DOMAIN=sonarr.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_SONARR_OAUTH_GROUPS=sonarr-access
+      - TINYAUTH_APPS_PROWLARR_CONFIG_DOMAIN=prowlarr.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_PROWLARR_OAUTH_GROUPS=prowlarr-access
+      - TINYAUTH_APPS_JELLYSTAT_CONFIG_DOMAIN=jellystat.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_JELLYSTAT_OAUTH_GROUPS=jellystat-access
+      - TINYAUTH_APPS_GLANCES_CONFIG_DOMAIN=glances.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_GLANCES_OAUTH_GROUPS=glances-access
+      - TINYAUTH_APPS_OPENCLAW_CONFIG_DOMAIN=openclaw.lan.${DOMAIN_BASE}
+      - TINYAUTH_APPS_OPENCLAW_OAUTH_GROUPS=openclaw-access
+    volumes:
+      - tinyauth_data:/data
+    networks:
+      - traefik_net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tinyauth.rule=Host(`tinyauth.lan.${DOMAIN_BASE}`)"
+      - "traefik.http.routers.tinyauth.entrypoints=websecure"
+      - "traefik.http.services.tinyauth.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_net"
+      - "traefik.http.middlewares.tinyauth.forwardauth.address=http://tinyauth:3000/api/auth/traefik"
+      - "wud.trigger.exclude=docker.update"
+      - 'wud.tag.include=^v\d+\.\d+\.\d+$$'
+    profiles:
+      - infrastructure
+      - devtools
+      - all
+
   # Homepage - Dashboard léger
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
@@ -902,7 +990,7 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
     depends_on:
-      authentik-server:
+      pocket-id:
         condition: service_healthy
     networks:
       - traefik_net
@@ -918,9 +1006,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${MEDIA_PATH}:/mnt/media:ro
     # HOMEPAGE_OIDC_ISSUER / _CLIENT_ID / _CLIENT_SECRET fournis par Terraform
-    # (cf. terraform/authentik/generated/homepage.env)
+    # (cf. terraform/pocketid/generated/homepage.env)
     env_file:
-      - ./terraform/authentik/generated/homepage.env
+      - ./terraform/pocketid/generated/homepage.env
     environment:
       - TZ=${TZ}
       - HOMEPAGE_ALLOWED_HOSTS=lan.${DOMAIN_BASE}
@@ -938,11 +1026,11 @@ services:
       # Widget WUD : compte local read-only "homepage" (l'API refuse l'anonyme)
       - HOMEPAGE_VAR_WUD_PASSWORD=${WUD_HOMEPAGE_PASSWORD:?wud homepage password required}
       # Auth native OIDC (Homepage >= 2.0) : remplace le forward auth Traefik.
-      # AUTO_LOGIN garde la redirection transparente vers Authentik qu'offrait le proxy.
+      # AUTO_LOGIN garde la redirection transparente vers Pocket ID qu'offrait le proxy.
       - HOMEPAGE_AUTH_ENABLED=true
       - HOMEPAGE_AUTH_SECRET=${HOMEPAGE_AUTH_SECRET:?homepage auth secret required}
       - HOMEPAGE_EXTERNAL_URL=https://lan.${DOMAIN_BASE}
-      - HOMEPAGE_OIDC_NAME=Authentik
+      - HOMEPAGE_OIDC_NAME=Pocket ID
       - HOMEPAGE_OIDC_AUTO_LOGIN=true
     labels:
       - "traefik.enable=true"
@@ -966,8 +1054,6 @@ services:
     memswap_limit: 2560m
     depends_on:
       sonarqube-db:
-        condition: service_healthy
-      authentik-server:
         condition: service_healthy
     healthcheck:
       # L'image sonarqube:community n'embarque pas wget, seulement curl
@@ -1000,22 +1086,8 @@ services:
       - "traefik.http.routers.sonarqube.entrypoints=websecure"
       - "traefik.http.services.sonarqube.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_net"
-      # Public : CrowdSec (SSO SAML géré directement par SonarQube)
+      # Public : CrowdSec, login local SonarQube
       - "traefik.http.routers.sonarqube.middlewares=crowdsec-bouncer@file"
-      # SSO Authentik forcé : la page de login redirige vers SAML, le login local est bloqué
-      - "traefik.http.routers.sonarqube-login.rule=Host(`sonarqube.${DOMAIN_BASE}`) && Path(`/sessions/new`)"
-      - "traefik.http.routers.sonarqube-login.entrypoints=websecure"
-      - "traefik.http.routers.sonarqube-login.service=sonarqube"
-      - "traefik.http.routers.sonarqube-login.priority=100"
-      - "traefik.http.routers.sonarqube-login.middlewares=crowdsec-bouncer@file,sonarqube-saml-redirect@docker"
-      - "traefik.http.middlewares.sonarqube-saml-redirect.redirectregex.regex=^https://([^/]+)/sessions/new(.*)"
-      - "traefik.http.middlewares.sonarqube-saml-redirect.redirectregex.replacement=https://$${1}/sessions/init/saml$${2}"
-      - "traefik.http.routers.sonarqube-local-auth.rule=Host(`sonarqube.${DOMAIN_BASE}`) && Path(`/api/authentication/login`)"
-      - "traefik.http.routers.sonarqube-local-auth.entrypoints=websecure"
-      - "traefik.http.routers.sonarqube-local-auth.service=sonarqube"
-      - "traefik.http.routers.sonarqube-local-auth.priority=100"
-      - "traefik.http.routers.sonarqube-local-auth.middlewares=sonarqube-deny@docker"
-      - "traefik.http.middlewares.sonarqube-deny.ipallowlist.sourcerange=127.0.0.1/32"
     profiles:
       - devtools
       - all
@@ -1140,6 +1212,10 @@ volumes:
 
   # Prowlarr
   prowlarr_config:
+
+  # Pocket ID / Tinyauth
+  pocketid_data:
+  tinyauth_data:
 
   # Authentik
   postgres_authentik_data:
