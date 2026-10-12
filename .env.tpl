@@ -56,11 +56,10 @@ SONARR_API_KEY={{ pass://Docker-At-Home/Homepage/SONARR_API_KEY }}
 # Secret de session de l'auth native Homepage (openssl rand -base64 32)
 HOMEPAGE_AUTH_SECRET={{ pass://Docker-At-Home/Homepage/HOMEPAGE_AUTH_SECRET }}
 
-# Jellystat
-JELLYSTAT_POSTGRES_USER={{ pass://Docker-At-Home/Jellystat/JELLYSTAT_POSTGRES_USER }}
-JELLYSTAT_POSTGRES_PASSWORD={{ pass://Docker-At-Home/Jellystat/JELLYSTAT_POSTGRES_PASSWORD }}
-JELLYSTAT_POSTGRES_DB={{ pass://Docker-At-Home/Jellystat/JELLYSTAT_POSTGRES_DB }}
-JELLYSTAT_JWT_SECRET={{ pass://Docker-At-Home/Jellystat/JELLYSTAT_JWT_SECRET }}
+# Tracearr
+TRACEARR_DB_PASSWORD={{ pass://Docker-At-Home/Tracearr/TRACEARR_DB_PASSWORD }}
+TRACEARR_JWT_SECRET={{ pass://Docker-At-Home/Tracearr/TRACEARR_JWT_SECRET }}
+TRACEARR_COOKIE_SECRET={{ pass://Docker-At-Home/Tracearr/TRACEARR_COOKIE_SECRET }}
 
 # Gluetun (ProtonVPN WireGuard) — clé WireGuard dédiée à gluetun (NAT-PMP coché), cf. gluetun#3196
 PROTON_WIREGUARD_PRIVATE_KEY={{ pass://Docker-At-Home/Gluetun/PROTON_WIREGUARD_PRIVATE_KEY }}

@@ -8,13 +8,13 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 - **infrastructure** — Traefik, Tailscale, Arcane, WUD, Pocket ID, Tinyauth, Homepage, CrowdSec
 - **dashboard** — Homepage
-- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat
+- **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr
 - **devtools** — SonarQube, Pocket ID, Tinyauth
 - **security** — CrowdSec
 - **tools** — FreshRSS
 - **all** — Every service
 
-> The PostgreSQL databases (Jellystat, SonarQube) start with their parent service.
+> The databases (Tracearr, SonarQube) start with their parent service.
 
 ### 🌐 Public vs private (Tailscale)
 
@@ -101,7 +101,7 @@ docker compose --profile media restart
 - **qui** — Modern qBittorrent WebUI with native OIDC, plus a client proxy for external apps ([autobrr/qui](https://github.com/autobrr/qui))
 - **Gluetun** — VPN client (WireGuard)
 - **gluetun-qbt-watchdog** — Syncs Gluetun's forwarded port into qBittorrent and restarts it when the tunnel drops ([brunoorsolon/gluetun-qbt-watchdog](https://github.com/brunoorsolon/gluetun-qbt-watchdog))
-- **Jellystat** — Usage statistics for Jellyfin (dedicated PostgreSQL)
+- **Tracearr** — Jellyfin activity history and stats, OIDC via Pocket ID (TimescaleDB + Redis) ([connorgallopo/Tracearr](https://github.com/connorgallopo/Tracearr))
 - **iSponsorBlockTV** — Skips/mutes YouTube ads and SponsorBlock segments on the Apple TV via the Lounge API ([dmunozv04/iSponsorBlockTV](https://github.com/dmunozv04/iSponsorBlockTV))
 
 ### 🧰 devtools
@@ -175,7 +175,7 @@ Notes:
 
 Gated on their private hostnames (`*.lan.${DOMAIN_BASE}`), each behind a dedicated **`<service>-access` group**:
 
-`radarr`, `sonarr`, `prowlarr`, `jellystat`, `glances`, `openclaw`
+`radarr`, `sonarr`, `prowlarr`, `tracearr`, `glances`, `openclaw`
 
 Routers use the `tinyauth@docker` middleware (`http://tinyauth:3000/api/auth/traefik`). Per-app rules are `TINYAUTH_APPS_<APP>_CONFIG_DOMAIN` / `_OAUTH_GROUPS` variables on the `tinyauth` service (no Docker socket). An app without a rule is open to any account allowed by the `tinyauth` client.
 
@@ -190,7 +190,6 @@ API clients send an API key, not a session, so Forward Auth would block them. A 
 | Radarr      | `radarr-api`      | `Host(radarr.lan.…) && PathPrefix(/api)`      | `X-Api-Key`                         |
 | Sonarr      | `sonarr-api`      | `Host(sonarr.lan.…) && PathPrefix(/api)`      | `X-Api-Key`                         |
 | Prowlarr    | `prowlarr-api`    | `Host(prowlarr.lan.…) && PathPrefix(/api)`    | `X-Api-Key`                         |
-| Jellystat   | `jellystat-api`   | `Host(jellystat.lan.…) && PathPrefix(/api)`   | `x-api-token`                       |
 
 > `priority=100` makes the `/api` prefix win over the catch-all UI router. These routes stay reachable when Tinyauth is down.
 

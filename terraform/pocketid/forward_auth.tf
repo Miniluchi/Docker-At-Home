@@ -6,7 +6,7 @@ locals {
     radarr    = "Radarr"
     sonarr    = "Sonarr"
     prowlarr  = "Prowlarr"
-    jellystat = "Jellystat"
+    tracearr  = "Tracearr"
     glances   = "Glances"
     openclaw  = "OpenClaw"
   }
