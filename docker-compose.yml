@@ -720,8 +720,8 @@ services:
     image: ghcr.io/openclaw/openclaw:latest-browser
     container_name: openclaw
     restart: unless-stopped
-    mem_limit: 4g
-    memswap_limit: 4g
+    mem_limit: 3g
+    memswap_limit: 3g
     shm_size: 512m
     depends_on:
       tinyauth:
