@@ -58,12 +58,6 @@
           password: "{{HOMEPAGE_VAR_QBT_PASSWORD}}"
 
 - Infrastructure:
-    - Portainer:
-        href: https://portainer.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
-        icon: portainer.png
-        description: Gestion Docker
-        server: my-docker
-        container: portainer
     - Arcane:
         href: https://arcane.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: arcane.png

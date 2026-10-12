@@ -1,6 +1,6 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, Portainer, Arcane, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Arcane, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Jellystat)
 # - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
@@ -150,45 +150,13 @@ services:
       - infrastructure
       - all
 
-  # Homarr - Dashboard
-  # Portainer - Container Management
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: "on-failure:2"
-    mem_limit: 128m
-    memswap_limit: 128m
-    networks:
-      - traefik_net
-    volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - portainer_data:/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
-      - "traefik.docker.network=traefik_net"
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - TZ=${TZ}
-    depends_on:
-      traefik:
-        condition: service_healthy
-      pocket-id:
-        condition: service_healthy
-    profiles:
-      - infrastructure
-      - all
-
   # Arcane - Gestion Docker (https://getarcane.app)
   arcane:
     image: ghcr.io/getarcaneapp/manager:latest
     container_name: arcane
     restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
+    mem_limit: 384m
+    memswap_limit: 384m
     healthcheck:
       test: ["CMD", "./arcane", "health", "--timeout", "2s"]
       interval: 30s
@@ -1115,9 +1083,6 @@ volumes:
 
   # Homepage
   homepage_config:
-
-  # Portainer
-  portainer_data:
 
   # Arcane
   arcane_data:

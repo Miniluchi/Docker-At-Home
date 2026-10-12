@@ -35,10 +35,6 @@ POCKETID_ENCRYPTION_KEY={{ pass://Docker-At-Home/PocketID/POCKETID_ENCRYPTION_KE
 JELLYFIN_OIDC_CLIENT_ID={{ pass://Docker-At-Home/Jellyfin/JELLYFIN_OIDC_CLIENT_ID }}
 JELLYFIN_OIDC_CLIENT_SECRET={{ pass://Docker-At-Home/Jellyfin/JELLYFIN_OIDC_CLIENT_SECRET }}
 
-# Portainer
-PORTAINER_OIDC_CLIENT_ID={{ pass://Docker-At-Home/Portainer/PORTAINER_OIDC_CLIENT_ID }}
-PORTAINER_OIDC_CLIENT_SECRET={{ pass://Docker-At-Home/Portainer/PORTAINER_OIDC_CLIENT_SECRET }}
-
 # Arcane (clé de chiffrement, openssl rand -hex 32)
 ARCANE_ENCRYPTION_KEY={{ pass://Docker-At-Home/Arcane/ARCANE_ENCRYPTION_KEY }}
 
