@@ -104,12 +104,6 @@
         description: Analyse de code
         server: my-docker
         container: sonarqube
-    - FreshRSS:
-        href: https://rss.{{HOMEPAGE_VAR_DOMAIN}}
-        icon: freshrss.png
-        description: Lecteur RSS
-        server: my-docker
-        container: freshrss
     - OpenClaw:
         href: https://openclaw.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
         icon: openclaw.png

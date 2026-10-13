@@ -11,14 +11,13 @@ A single `docker-compose.yml` uses **profiles** to group services:
 - **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr
 - **devtools** — SonarQube, Pocket ID, Tinyauth
 - **security** — CrowdSec
-- **tools** — FreshRSS
 - **all** — Every service
 
 > The databases (Tracearr, SonarQube) start with their parent service.
 
 ### 🌐 Public vs private (Tailscale)
 
-Only **Jellyfin**, **Seerr**, **Pocket ID** and **FreshRSS** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
+Only **Jellyfin**, **Seerr** and **Pocket ID** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
 ### 🛡️ Real client IPs (HAProxy)
 
@@ -57,7 +56,7 @@ brew services start haproxy   # launchd, starts at login like OrbStack
 4. **Start several profiles at once**
 
    ```bash
-   docker compose --profile infrastructure --profile media --profile tools up -d
+   docker compose --profile infrastructure --profile media --profile ai up -d
    ```
 
 ## 🛠️ Management
@@ -111,11 +110,7 @@ docker compose --profile media restart
 
 ### 🛡️ security
 
-- **CrowdSec** — Behaviour-based intrusion detection; blocks flagged IPs on the public routers (jellyfin/seerr/id/rss)
-
-### 🧪 tools
-
-- **FreshRSS** — RSS aggregator (OIDC SSO via Pocket ID)
+- **CrowdSec** — Behaviour-based intrusion detection; blocks flagged IPs on the public routers (jellyfin/seerr/id)
 
 ### 🤖 ai
 
@@ -199,7 +194,6 @@ API clients send an API key, not a session, so Forward Auth would block them. A 
 
 Issuer `https://id.${DOMAIN_BASE}` (discovery `/.well-known/openid-configuration`); add the `groups` scope where group claims are needed.
 
-- **FreshRSS** — OIDC (fully managed by Terraform, credentials injected via env file)
 - **qui** — OIDC (fully managed by Terraform; built-in login disabled, access gated on the `qui-access` group)
 - **Arcane** — OIDC (fully managed by Terraform; admin role and access gated on the `arcane-access` group)
 - **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group; variables keep the `WUD_AUTH_OIDC_AUTHENTIK_*` prefix to keep the callback URL)
@@ -222,7 +216,7 @@ Two independent modules under `terraform/`:
 | File                                               | Purpose                                                                  |
 | -------------------------------------------------- | ------------------------------------------------------------------------ |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Pocket ID URL & API key, `domain_base`)           |
-| `freshrss.tf`, `homepage.tf`, `qui.tf`, `wud.tf`, `arcane.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
+| `homepage.tf`, `qui.tf`, `wud.tf`, `arcane.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
 | `forward_auth.tf`                                  | `<service>-access` groups + the single `tinyauth` client (`generated/tinyauth.env`) |
 
 `client_secret` is only readable at creation and lives in the state: keep `terraform.tfstate` out of git (it is).
@@ -270,7 +264,7 @@ terraform apply
 
 - ✅ Private services reachable **only through the tailnet** (device identity = first auth layer)
 - ✅ Centralised authentication, unified users/groups, passkeys, centralised auth logs
-- ✅ CrowdSec + Traefik bouncer on the remaining public edge (jellyfin/seerr/id/rss)
+- ✅ CrowdSec + Traefik bouncer on the remaining public edge (jellyfin/seerr/id)
 - ⚠️ **Single point of failure (assumed)**: if Pocket ID is down, every Forward Auth / OIDC **web UI** is inaccessible (Tinyauth too for Forward Auth); the `/api` routes stay up
 - ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Tinyauth — mitigated by the tailnet boundary
 - ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Tinyauth and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.

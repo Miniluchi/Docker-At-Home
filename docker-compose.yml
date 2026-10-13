@@ -5,7 +5,6 @@
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr)
 # - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
 # - security       : Security (CrowdSec + Traefik bouncer)
-# - tools          : Tools (FreshRSS)
 # - ai             : AI assistant (OpenClaw)
 # - all            : All services
 #
@@ -14,7 +13,7 @@
 #
 # Usage:
 # - Start a profile: docker compose --profile media up -d
-# - Start several profiles: docker compose --profile media --profile tools up -d
+# - Start several profiles: docker compose --profile media --profile ai up -d
 # - Start everything: docker compose --profile all up -d
 # - Stop a profile: docker compose --profile media down
 
@@ -697,51 +696,6 @@ services:
       - media
       - all
 
-  # FreshRSS - RSS Feed Reader
-  freshrss:
-    image: freshrss/freshrss:latest
-    container_name: freshrss
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    depends_on:
-      pocket-id:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f apache2 > /dev/null || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    # OIDC_CLIENT_ID / OIDC_CLIENT_SECRET fournis par Terraform
-    # (cf. terraform/pocketid/generated/freshrss.env)
-    env_file:
-      - ./terraform/pocketid/generated/freshrss.env
-    environment:
-      - TZ=${TZ}
-      - CRON_MIN=1,31
-      # OIDC Configuration avec Pocket ID
-      - OIDC_ENABLED=1
-      - OIDC_PROVIDER_METADATA_URL=https://id.${DOMAIN_BASE}/.well-known/openid-configuration
-      - OIDC_X_FORWARDED_HEADERS=X-Forwarded-Proto X-Forwarded-Host
-      - OIDC_SCOPES=openid email profile
-    volumes:
-      - freshrss_data:/var/www/FreshRSS/data
-      - freshrss_extensions:/var/www/FreshRSS/extensions
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.freshrss.rule=Host(`rss.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.freshrss.entrypoints=websecure"
-      - "traefik.http.services.freshrss.loadbalancer.server.port=80"
-      - "traefik.docker.network=traefik_net"
-      # Public : CrowdSec (OIDC géré directement par FreshRSS)
-      - "traefik.http.routers.freshrss.middlewares=crowdsec-bouncer@file"
-    profiles:
-      - tools
-      - all
-
   # iSponsorBlockTV
   isponsorblocktv:
     image: ghcr.io/dmunozv04/isponsorblocktv:v2
@@ -1152,10 +1106,6 @@ volumes:
   # CrowdSec
   crowdsec_config:
   crowdsec_data:
-
-  # FreshRSS
-  freshrss_data:
-  freshrss_extensions:
 
   # Tracearr
   tracearr_db_data:
