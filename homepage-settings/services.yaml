@@ -110,6 +110,12 @@
         description: Assistant IA
         server: my-docker
         container: openclaw
+    - Stirling PDF:
+        href: https://pdf.{{HOMEPAGE_VAR_DOMAIN}}
+        icon: stirling-pdf.png
+        description: Outils PDF
+        server: my-docker
+        container: stirling-pdf
 
 - Metriques:
     - CPU:
