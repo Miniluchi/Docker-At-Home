@@ -691,6 +691,11 @@ services:
       - "traefik.docker.network=traefik_net"
       # Privé (tailnet) : Tinyauth en défense-en-profondeur
       - "traefik.http.routers.tracearr.middlewares=tinyauth@docker"
+      # API hors Tinyauth (auth par Bearer token) pour clients natifs type Helmarr (via tailnet)
+      - "traefik.http.routers.tracearr-api.rule=Host(`tracearr.lan.${DOMAIN_BASE}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.tracearr-api.entrypoints=websecure"
+      - "traefik.http.routers.tracearr-api.service=tracearr"
+      - "traefik.http.routers.tracearr-api.priority=100"
     profiles:
       - media
       - all
