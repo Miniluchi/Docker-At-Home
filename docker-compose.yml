@@ -1,6 +1,6 @@
 # Docker Compose with profiles
 # Available profiles:
-# - infrastructure : Core services (Traefik, Arcane, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
+# - infrastructure : Core services (Traefik, Arcane, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr)
 # - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
@@ -92,7 +92,7 @@ services:
         gw_priority: 1
       openclaw_net:
     labels:
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     profiles:
       - infrastructure
       - all
@@ -144,7 +144,7 @@ services:
     volumes:
       - dah_proxy_state:/var/lib/tailscale
     labels:
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     profiles:
       - infrastructure
       - all
@@ -186,7 +186,7 @@ services:
       - "traefik.http.routers.arcane.entrypoints=websecure"
       - "traefik.http.services.arcane.loadbalancer.server.port=3552"
       - "traefik.docker.network=traefik_net"
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     security_opt:
       - no-new-privileges:true
     depends_on:
@@ -194,63 +194,6 @@ services:
         condition: service_healthy
       pocket-id:
         condition: service_healthy
-    profiles:
-      - infrastructure
-      - all
-
-  # WUD (What's Up Docker) - Suivi des mises à jour d'images (https://github.com/getwud/wud)
-  wud:
-    image: ghcr.io/getwud/wud:latest
-    container_name: wud
-    restart: unless-stopped
-    mem_limit: 256m
-    memswap_limit: 256m
-    depends_on:
-      pocket-id:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:3000/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    # WUD_AUTH_OIDC_AUTHENTIK_DISCOVERY / _CLIENTID / _CLIENTSECRET / _ADMINGROUP fournis par Terraform
-    # (cf. terraform/pocketid/generated/wud.env)
-    env_file:
-      - ./terraform/pocketid/generated/wud.env
-    environment:
-      - TZ=${TZ}
-      - WUD_PUBLIC_URL=https://wud.lan.${DOMAIN_BASE}
-      - WUD_AUTH_OIDC_AUTHENTIK_REDIRECT=true
-      - WUD_AUTH_OIDC_AUTHENTIK_DEFAULTROLE=none
-      # Préfixe AUTHENTIK conservé (callback /auth/oidc/authentik/cb) ; le provider est Pocket ID
-      - WUD_AUTH_OIDC_AUTHENTIK_SCOPE=openid email profile groups
-      # 1 scan/jour (rate limit Docker Hub), conteneurs arrêtés inclus, digest pour les tags mutables
-      - WUD_WATCHER_LOCAL_CRON=0 6 * * *
-      - WUD_WATCHER_LOCAL_WATCHALL=true
-      - WUD_WATCHER_LOCAL_WATCHDIGESTDEFAULT=true
-      # Image publiée depuis au moins 1 jour avant d'être proposée
-      - WUD_WATCHER_LOCAL_DELAY=1d
-      # MAJ automatique, sauf conteneurs labellisés wud.trigger.exclude=docker.update ;
-      # pas de prune : l'ancienne image reste disponible pour un rollback
-      - WUD_TRIGGER_DOCKER_UPDATE_AUTO=true
-      # ONCE=true (défaut) ne déclenche que si le résultat change : incompatible avec DELAY
-      # (MAJ détectée pendant le délai, jamais redéclenchée ensuite)
-      - WUD_TRIGGER_DOCKER_UPDATE_ONCE=false
-    volumes:
-      # rw requis par le trigger docker (recréation des conteneurs)
-      - /var/run/docker.sock:/var/run/docker.sock
-      - wud_store:/store
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.wud.rule=Host(`wud.lan.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.wud.entrypoints=websecure"
-      - "traefik.http.services.wud.loadbalancer.server.port=3000"
-      - "traefik.docker.network=traefik_net"
-      # Privé (tailnet), OIDC géré par WUD
-      - "wud.trigger.exclude=docker.update"
     profiles:
       - infrastructure
       - all
@@ -414,7 +357,7 @@ services:
       - traefik_net
     # Pas de route Traefik : WebUI servie par qui (qui.lan), accès interne via gluetun:8080
     labels:
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     profiles:
       - media
       - all
@@ -617,7 +560,10 @@ services:
     networks:
       - traefik_net
     labels:
-      - 'wud.tag.include=^pg18\.\d+-ts\d+\.\d+\.\d+$$'
+      # Notification seule (tag updates = réécriture du compose, hors de portée d'Arcane)
+      - "com.getarcaneapp.arcane.updater=false"
+      - "com.getarcaneapp.arcane.updater.strategy=tag"
+      - 'com.getarcaneapp.arcane.updater.tag-pattern=pg18\.\d+-ts(?P<version>\d+\.\d+\.\d+)'
     profiles:
       - media
       - all
@@ -638,9 +584,6 @@ services:
       - tracearr_redis_data:/data
     networks:
       - traefik_net
-    labels:
-      - 'wud.tag.include=^8-alpine$$'
-      - "wud.watch.digest=true"
     profiles:
       - media
       - all
@@ -713,9 +656,6 @@ services:
       - ./isponsorblocktv:/app/data
     networks:
       - traefik_net
-    labels:
-      - 'wud.tag.include=^v2$$'
-      - "wud.watch.digest=true"
     profiles:
       - media
       - all
@@ -763,7 +703,7 @@ services:
       # Privé (tailnet) + Tinyauth, puis token du gateway
       - "traefik.http.routers.openclaw.middlewares=tinyauth@docker"
       # MAJ manuelles (openclaw doctor --fix après chaque version)
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     profiles:
       - ai
       - all
@@ -800,8 +740,9 @@ services:
       - "traefik.http.services.pocketid.loadbalancer.server.port=1411"
       - "traefik.docker.network=traefik_net"
       - "traefik.http.routers.pocketid.middlewares=crowdsec-bouncer@file"
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^v\d+\.\d+\.\d+-distroless$$'
+      - "com.getarcaneapp.arcane.updater=false"
+      - "com.getarcaneapp.arcane.updater.strategy=tag"
+      - 'com.getarcaneapp.arcane.updater.tag-pattern=v(?P<version>\d+\.\d+\.\d+)-distroless'
     profiles:
       - infrastructure
       - devtools
@@ -859,8 +800,9 @@ services:
       - "traefik.http.services.tinyauth.loadbalancer.server.port=3000"
       - "traefik.docker.network=traefik_net"
       - "traefik.http.middlewares.tinyauth.forwardauth.address=http://tinyauth:3000/api/auth/traefik"
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^v\d+\.\d+\.\d+$$'
+      - "com.getarcaneapp.arcane.updater=false"
+      - "com.getarcaneapp.arcane.updater.strategy=tag"
+      - 'com.getarcaneapp.arcane.updater.tag-pattern=v(?P<version>\d+\.\d+\.\d+)'
     profiles:
       - infrastructure
       - devtools
@@ -907,8 +849,6 @@ services:
       # Widget qui : qBittorrent interrogé directement (netns gluetun)
       - HOMEPAGE_VAR_QBT_USER=${QBT_USER}
       - HOMEPAGE_VAR_QBT_PASSWORD=${QBT_PASS}
-      # Widget WUD : compte local read-only "homepage" (l'API refuse l'anonyme)
-      - HOMEPAGE_VAR_WUD_PASSWORD=${WUD_HOMEPAGE_PASSWORD:?wud homepage password required}
       # Auth native OIDC (Homepage >= 2.0) : remplace le forward auth Traefik.
       # AUTO_LOGIN garde la redirection transparente vers Pocket ID qu'offrait le proxy.
       - HOMEPAGE_AUTH_ENABLED=true
@@ -1003,9 +943,7 @@ services:
     networks:
       - traefik_net
     labels:
-      - "wud.trigger.exclude=docker.update"
-      - 'wud.tag.include=^16-alpine$$'
-      - "wud.watch.digest=true"
+      - "com.getarcaneapp.arcane.updater=false"
     profiles:
       - devtools
       - all
@@ -1043,7 +981,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - "traefik.enable=false"
-      - "wud.trigger.exclude=docker.update"
+      - "com.getarcaneapp.arcane.updater=false"
     networks:
       - traefik_net
     profiles:
@@ -1075,9 +1013,6 @@ volumes:
 
   # Arcane
   arcane_data:
-
-  # WUD
-  wud_store:
 
   # Seerr
   seerr_config:

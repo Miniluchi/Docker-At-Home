@@ -64,17 +64,6 @@
         description: Gestion Docker
         server: my-docker
         container: arcane
-    - WUD:
-        href: https://wud.{{HOMEPAGE_VAR_PRIVATE_DOMAIN}}
-        icon: whats-up-docker.png
-        description: Mises à jour des images
-        server: my-docker
-        container: wud
-        widget:
-          type: whatsupdocker
-          url: http://wud:3000
-          username: homepage
-          password: "{{HOMEPAGE_VAR_WUD_PASSWORD}}"
     - Pocket ID:
         href: https://id.{{HOMEPAGE_VAR_DOMAIN}}
         icon: pocket-id.png

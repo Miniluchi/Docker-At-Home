@@ -73,8 +73,5 @@ GLUETUN_API_KEY={{ pass://Docker-At-Home/Gluetun-Watchdog/GLUETUN_API_KEY }}
 QBT_USER={{ pass://Docker-At-Home/Gluetun-Watchdog/QBT_USER }}
 QBT_PASS={{ pass://Docker-At-Home/Gluetun-Watchdog/QBT_PASS }}
 
-# WUD - compte local read-only du widget Homepage (utilisateur "homepage")
-WUD_HOMEPAGE_PASSWORD={{ pass://Docker-At-Home/WUD/WUD_HOMEPAGE_PASSWORD }}
-
 # OpenClaw - token d'auth du gateway (openssl rand -hex 32)
 OPENCLAW_GATEWAY_TOKEN={{ pass://Docker-At-Home/OpenClaw/OPENCLAW_GATEWAY_TOKEN }}
