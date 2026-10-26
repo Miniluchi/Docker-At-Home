@@ -384,7 +384,7 @@ services:
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 256m
     memswap_limit: 256m
     cap_add:
@@ -423,7 +423,7 @@ services:
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 256m
     memswap_limit: 256m
     network_mode: "service:gluetun"
@@ -592,7 +592,7 @@ services:
   tracearr-db:
     image: timescale/timescaledb-ha:pg18.4-ts2.29.1
     container_name: tracearr-db
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 768m
     memswap_limit: 768m
     shm_size: 256mb
@@ -625,7 +625,7 @@ services:
   tracearr-redis:
     image: redis:8-alpine
     container_name: tracearr-redis
-    restart: "on-failure:2"
+    restart: unless-stopped
     mem_limit: 128m
     memswap_limit: 128m
     command: redis-server --appendonly yes
