@@ -711,7 +711,7 @@ services:
   # Pocket ID - Fournisseur OIDC (passkeys), seule base d'utilisateurs/groupes.
   # Clients et groupes gérés par terraform/pocketid.
   pocket-id:
-    image: ghcr.io/pocket-id/pocket-id:v2.18.0-distroless
+    image: ghcr.io/pocket-id/pocket-id:v2.19.1-distroless
     container_name: pocket-id
     restart: unless-stopped
     read_only: true
