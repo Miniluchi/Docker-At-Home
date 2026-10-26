@@ -9,7 +9,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 - **infrastructure** — Traefik, Tailscale, Arcane, WUD, Pocket ID, Tinyauth, Homepage, CrowdSec
 - **dashboard** — Homepage
 - **media** — Jellyfin, Seerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr
-- **devtools** — SonarQube, Stirling PDF, Pocket ID, Tinyauth
+- **devtools** — SonarQube, Pocket ID, Tinyauth
 - **security** — CrowdSec
 - **all** — Every service
 
@@ -17,7 +17,7 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 ### 🌐 Public vs private (Tailscale)
 
-Only **Jellyfin**, **Seerr**, **Pocket ID** and **Stirling PDF** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
+Only **Jellyfin**, **Seerr** and **Pocket ID** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
 ### 🛡️ Real client IPs (HAProxy)
 
@@ -106,7 +106,6 @@ docker compose --profile media restart
 ### 🧰 devtools
 
 - **SonarQube** — Code quality / static analysis (dedicated PostgreSQL)
-- **Stirling PDF** — PDF toolbox on `pdf.${DOMAIN_BASE}` (public, CrowdSec), OIDC via Pocket ID ([Stirling-Tools/Stirling-PDF](https://github.com/Stirling-Tools/Stirling-PDF))
 - **Pocket ID**, **Tinyauth** — see _infrastructure_
 
 ### 🛡️ security
@@ -199,7 +198,6 @@ Issuer `https://id.${DOMAIN_BASE}` (discovery `/.well-known/openid-configuration
 - **Arcane** — OIDC (fully managed by Terraform; admin role and access gated on the `arcane-access` group)
 - **WUD** — OIDC (fully managed by Terraform; admin role and access gated on the `wud-access` group; variables keep the `WUD_AUTH_OIDC_AUTHENTIK_*` prefix to keep the callback URL)
 - **Homepage** — OIDC (fully managed by Terraform; access gated on the `homepage-access` group)
-- **Stirling PDF** — OIDC (fully managed by Terraform; access gated on the `stirling-pdf-access` group; SSO-only with auto-redirect, `SECURITY_LOGINMETHOD=oauth2` + `SECURITY_SSOAUTOLOGIN=true`). Admin role is set by hand on the OIDC account in *Settings → Workspace → Users*
 - **Seerr** — OIDC (client created manually in Pocket ID)
 - **Jellyfin** — OIDC via the SSO plugin (manual)
 - **SonarQube** — local login (no SAML in Pocket ID)
@@ -218,7 +216,7 @@ Two independent modules under `terraform/`:
 | File                                               | Purpose                                                                  |
 | -------------------------------------------------- | ------------------------------------------------------------------------ |
 | `providers.tf`, `variables.tf`, `terraform.tfvars` | Provider + connection (Pocket ID URL & API key, `domain_base`)           |
-| `homepage.tf`, `qui.tf`, `wud.tf`, `arcane.tf`, `tracearr.tf`, `stirling_pdf.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
+| `homepage.tf`, `qui.tf`, `wud.tf`, `arcane.tf`, `tracearr.tf` | OIDC clients (+ `<app>-access` group, generated env file) |
 | `forward_auth.tf`                                  | `<service>-access` groups + the single `tinyauth` client (`generated/tinyauth.env`) |
 
 `client_secret` is only readable at creation and lives in the state: keep `terraform.tfstate` out of git (it is).

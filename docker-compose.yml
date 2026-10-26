@@ -3,7 +3,7 @@
 # - infrastructure : Core services (Traefik, Arcane, WUD, Pocket ID, Tinyauth, Homepage, Glances, CrowdSec)
 # - dashboard      : Dashboards (Homepage)
 # - media          : Media (Jellyfin, Jellyseerr, Radarr, Sonarr, Prowlarr, qBittorrent + Gluetun, qui, Tracearr)
-# - devtools       : Developer tools (SonarQube, Stirling PDF, Pocket ID, Tinyauth)
+# - devtools       : Developer tools (SonarQube, Pocket ID, Tinyauth)
 # - security       : Security (CrowdSec + Traefik bouncer)
 # - ai             : AI assistant (OpenClaw)
 # - all            : All services
@@ -617,7 +617,6 @@ services:
     networks:
       - traefik_net
     labels:
-      - "wud.trigger.exclude=docker.update"
       - 'wud.tag.include=^pg18\.\d+-ts\d+\.\d+\.\d+$$'
     profiles:
       - media
@@ -925,56 +924,6 @@ services:
       - infrastructure
       - all
 
-  # Stirling PDF - Outils PDF (https://github.com/Stirling-Tools/Stirling-PDF)
-  stirling-pdf:
-    image: stirlingtools/stirling-pdf:latest
-    container_name: stirling-pdf
-    restart: unless-stopped
-    mem_limit: 4g
-    memswap_limit: 4g
-    depends_on:
-      pocket-id:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8080/api/v1/info/status || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 90s
-    # SECURITY_OAUTH2_ISSUER / _CLIENTID / _CLIENTSECRET fournis par Terraform
-    # (cf. terraform/pocketid/generated/stirling-pdf.env)
-    env_file:
-      - ./terraform/pocketid/generated/stirling-pdf.env
-    environment:
-      - TZ=${TZ}
-      - SYSTEM_BACKENDURL=https://pdf.${DOMAIN_BASE}
-      - SYSTEM_ENABLEANALYTICS=false
-      - SECURITY_ENABLELOGIN=true
-      # SSO uniquement (compte admin local supprimé, rôle admin porté par le compte OIDC)
-      - SECURITY_LOGINMETHOD=oauth2
-      - SECURITY_SSOAUTOLOGIN=true
-      - SECURITY_OAUTH2_ENABLED=true
-      - SECURITY_OAUTH2_PROVIDER=pocketid
-      - SECURITY_OAUTH2_SCOPES=openid, profile, email
-      - SECURITY_OAUTH2_USEASUSERNAME=email
-      - SECURITY_OAUTH2_AUTOCREATEUSER=true
-    volumes:
-      - stirling_pdf_configs:/configs
-      - stirling_pdf_storage:/storage
-    networks:
-      - traefik_net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.stirling-pdf.rule=Host(`pdf.${DOMAIN_BASE}`)"
-      - "traefik.http.routers.stirling-pdf.entrypoints=websecure"
-      - "traefik.http.services.stirling-pdf.loadbalancer.server.port=8080"
-      - "traefik.docker.network=traefik_net"
-      # Public : CrowdSec, OIDC géré par Stirling PDF
-      - "traefik.http.routers.stirling-pdf.middlewares=crowdsec-bouncer@file"
-    profiles:
-      - devtools
-      - all
-
   # SonarQube - Analyse de code
   sonarqube:
     image: sonarqube:community
@@ -1152,10 +1101,6 @@ volumes:
   sonarqube_extensions:
   sonarqube_logs:
   sonarqube_postgres_data:
-
-  # Stirling PDF
-  stirling_pdf_configs:
-  stirling_pdf_storage:
 
   # CrowdSec
   crowdsec_config:
