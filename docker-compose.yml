@@ -29,12 +29,8 @@ services:
       - TZ=${TZ}
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_API_KEY}
       - DOMAIN_BASE=${DOMAIN_BASE}
-      # ACME DNS-01 via OVH (lego) — permet le wildcard *.lan.${DOMAIN_BASE} et
-      # supprime la dépendance au challenge HTTP sur :80
-      - OVH_ENDPOINT=${OVH_ENDPOINT}
-      - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
-      - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
-      - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+      # ACME DNS-01 via Cloudflare (lego) — wildcard *.lan.${DOMAIN_BASE} sans port ouvert
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     healthcheck:
       test: ["CMD", "traefik", "healthcheck", "--ping"]
       interval: 10s
@@ -48,10 +44,9 @@ services:
       - "--ping=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # IP client réelle transmise par HAProxy natif (haproxy/haproxy.cfg) via la passerelle traefik_net
-      - "--entrypoints.web.proxyProtocol.trustedIPs=192.168.97.1/32"
-      - "--entrypoints.websecure.proxyProtocol.trustedIPs=192.168.97.1/32"
-      - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.provider=ovh"
+      # X-Forwarded-For de cloudflared (IP fixe) conservé : IP client réelle dans les logs CrowdSec
+      - "--entrypoints.websecure.forwardedHeaders.trustedIPs=192.168.97.250/32"
+      - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.provider=cloudflare"
       - "--certificatesresolvers.letsEncrypt.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
       - "--certificatesresolvers.letsEncrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
       - "--certificatesresolvers.letsEncrypt.acme.storage=/letsencrypt/acme.json"
@@ -75,9 +70,6 @@ services:
       # Fichier de configuration dynamique (middleware plugin)
       - "--providers.file.filename=/etc/traefik/dynamic.yml"
       - "--providers.file.watch=true"
-    ports:
-      - 127.0.0.1:8080:80
-      - 127.0.0.1:8443:443
     extra_hosts:
       - "host.docker.internal:host-gateway" # A TESTER
     volumes:
@@ -87,7 +79,6 @@ services:
       - traefik_logs:/var/log/traefik
       - ./traefik-dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
-      # gw_priority : la passerelle de traefik_net doit rester celle des ports publiés (trustedIPs HAProxy)
       traefik_net:
         gw_priority: 1
       openclaw_net:
@@ -145,6 +136,35 @@ services:
       - dah_proxy_state:/var/lib/tailscale
     labels:
       - "com.getarcaneapp.arcane.updater=false"
+    profiles:
+      - infrastructure
+      - all
+
+  # Cloudflare Tunnel - seule entrée publique (aucun port ouvert sur la box).
+  # Remote-managed : hostnames publics configurés dans le dashboard Zero Trust,
+  # tous vers https://traefik:443 avec "Match SNI to Host".
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    mem_limit: 128m
+    memswap_limit: 128m
+    command: tunnel --no-autoupdate --metrics 127.0.0.1:2000 run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      traefik:
+        condition: service_started
+    networks:
+      traefik_net:
+        # IP fixe : seule source de confiance pour X-Forwarded-For / CF-Connecting-IP
+        ipv4_address: 192.168.97.250
     profiles:
       - infrastructure
       - all

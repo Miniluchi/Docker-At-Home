@@ -17,17 +17,11 @@ A single `docker-compose.yml` uses **profiles** to group services:
 
 ### 🌐 Public vs private (Tailscale)
 
-Only **Jellyfin**, **Seerr** and **Pocket ID** are public (`*.${DOMAIN_BASE}`, CrowdSec in front). Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (OVH provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
+Only **Jellyfin**, **Seerr**, **Pocket ID** and **SonarQube** are public (`*.${DOMAIN_BASE}`, CrowdSec in front), exclusively through a Cloudflare Tunnel: no port is open on the router. Everything else lives on `*.lan.${DOMAIN_BASE}`, reachable only through the tailnet: a Tailscale sidecar shares Traefik's network namespace, so the node's `100.x` IP exposes Traefik `:443` to authorized devices. TLS uses a Let's Encrypt DNS-01 wildcard (Cloudflare provider), and SSO (Tinyauth Forward Auth, or native OIDC against Pocket ID where supported) stays on the private UIs as defense-in-depth. Full design, DNS plan and rollback: [`docs/acces-prive-tailscale.md`](docs/acces-prive-tailscale.md).
 
-### 🛡️ Real client IPs (HAProxy)
+### 🛡️ Cloudflare Tunnel and real client IPs
 
-OrbStack's port forwarding rewrites the source IP, which would blind CrowdSec (every visitor shows up as the `traefik_net` gateway). A native HAProxy on macOS therefore owns `:80`/`:443` and relays raw TCP to Traefik on `127.0.0.1:8080`/`8443` with PROXY protocol v2; Traefik only trusts that header from `192.168.97.1`. Config: [`haproxy/haproxy.cfg`](haproxy/haproxy.cfg).
-
-```bash
-brew install haproxy
-ln -sf "$PWD/haproxy/haproxy.cfg" /opt/homebrew/etc/haproxy.cfg
-brew services start haproxy   # launchd, starts at login like OrbStack
-```
+`cloudflared` (remote-managed, token in `.env`) has a fixed IP `192.168.97.250` on `traefik_net`. Every public hostname is configured in the Zero Trust dashboard as `https://traefik:443` with **Match SNI to Host**. Traefik only trusts `X-Forwarded-For` from that IP (access logs for CrowdSec), and the bouncer reads `CF-Connecting-IP` from it.
 
 ## 🚀 Quick start
 
@@ -76,7 +70,7 @@ docker compose --profile media restart
 
 ### 🏗️ infrastructure
 
-- **Traefik** — Reverse proxy with automatic SSL (Let's Encrypt, DNS-01 via OVH)
+- **Traefik** — Reverse proxy with automatic SSL (Let's Encrypt, DNS-01 via Cloudflare)
 - **Tailscale** — Sidecar node `dah-proxy` sharing Traefik's netns; entry point of the private zone
 - **Arcane** — Docker management UI (OIDC SSO via Pocket ID) and image updates: daily check + automatic digest updates (schedules set in the UI, *Environments → Local Docker → Automations*); infra (Traefik, Tailscale, CrowdSec, Pocket ID, Tinyauth, PostgreSQL, Gluetun, OpenClaw, Arcane) is notify-only via the `com.getarcaneapp.arcane.updater=false` label ([getarcaneapp/arcane](https://github.com/getarcaneapp/arcane))
 - **Pocket ID** — OIDC identity provider (passkeys), single user/group directory (SQLite)
@@ -266,7 +260,7 @@ terraform apply
 - ⚠️ **Single point of failure (assumed)**: if Pocket ID is down, every Forward Auth / OIDC **web UI** is inaccessible (Tinyauth too for Forward Auth); the `/api` routes stay up
 - ⚠️ Arr **web UIs** (`AuthenticationMethod=External`) have no protection of their own without Tinyauth — mitigated by the tailnet boundary
 - ⚠️ The `/api` routes (and qui's `/proxy/<key>`) bypass Tinyauth and rely on the tailnet + the service's own key/token. Keep those keys secret and qBittorrent's WebUI auth enabled.
-- ⚠️ **OpenClaw** can still reach the Mac's own services (OrbStack forwards `host.docker.internal`, even to localhost-only listeners), the LAN, and every Traefik route including `*.lan` (via `traefik` or `host.docker.internal:8443`): the tailnet is not a boundary for it, Tinyauth/Pocket ID and the services' own keys are. Web pages it reads can carry prompt injection, so it gets no `docker.sock`, no host binds and no access to the other containers.
+- ⚠️ **OpenClaw** can still reach the Mac's own services (OrbStack forwards `host.docker.internal`, even to localhost-only listeners), the LAN, and every Traefik route including `*.lan` (via `traefik`): the tailnet is not a boundary for it, Tinyauth/Pocket ID and the services' own keys are. Web pages it reads can carry prompt injection, so it gets no `docker.sock`, no host binds and no access to the other containers.
 
 **Recommendations**:
 

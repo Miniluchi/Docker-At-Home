@@ -6,15 +6,12 @@ PGID={{ pass://Docker-At-Home/General/PGID }}
 # Traefik
 TRAEFIK_ACME_EMAIL={{ pass://Docker-At-Home/Traefik/TRAEFIK_ACME_EMAIL }}
 
-# Traefik DNS-01 (OVH) — certificats via challenge DNS (wildcard *.lan.${DOMAIN_BASE}
-# pour les services privés tailnet + renouvellement du public sans exposer :80).
-# Token généré sur https://eu.api.ovh.com/createToken/ (validité ILLIMITÉE, sinon les
-# renouvellements casseront). Droits requis : GET/POST/DELETE sur /domain/zone/<domaine>/*
-# OVH_ENDPOINT : région de l'API, "ovh-eu" pour un compte FR/EU.
-OVH_ENDPOINT=ovh-eu
-OVH_APPLICATION_KEY={{ pass://Docker-At-Home/OVH/OVH_APPLICATION_KEY }}
-OVH_APPLICATION_SECRET={{ pass://Docker-At-Home/OVH/OVH_APPLICATION_SECRET }}
-OVH_CONSUMER_KEY={{ pass://Docker-At-Home/OVH/OVH_CONSUMER_KEY }}
+# Traefik DNS-01 (Cloudflare) — certificats wildcard ${DOMAIN_BASE} et *.lan.${DOMAIN_BASE}.
+# API token (dash.cloudflare.com/profile/api-tokens) : Zone:Zone:Read + Zone:DNS:Edit sur la zone.
+CF_DNS_API_TOKEN={{ pass://Docker-At-Home/Cloudflare/CF_DNS_API_TOKEN }}
+
+# Cloudflare Tunnel (remote-managed) — token affiché à la création du tunnel dans Zero Trust
+CLOUDFLARE_TUNNEL_TOKEN={{ pass://Docker-At-Home/Cloudflare/CLOUDFLARE_TUNNEL_TOKEN }}
 
 # Tailscale (sidecar dah-proxy) — accès privé tailnet-only aux services sensibles
 # (cf. docs/acces-prive-tailscale.md). Auth key générée sur
